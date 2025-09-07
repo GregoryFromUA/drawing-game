@@ -66,6 +66,56 @@
             color: #333;
         }
         
+        .clickable-code {
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            user-select: all;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        
+        .clickable-code:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .clickable-code:active {
+            transform: scale(0.98);
+        }
+        
+        .copy-success {
+            position: absolute;
+            right: -120px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #4caf50;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            animation: fadeInOut 2s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-50%) translateX(-10px); }
+            20% { opacity: 1; transform: translateY(-50%) translateX(0); }
+            80% { opacity: 1; transform: translateY(-50%) translateX(0); }
+            100% { opacity: 0; transform: translateY(-50%) translateX(10px); }
+        }
+        
+        .code-hint {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 10px;
+            text-align: center;
+            font-style: italic;
+        }
+        
         .rules-section {
             background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
             border: 2px solid #ff9800;
@@ -719,6 +769,13 @@
             .score-hint-content {
                 grid-template-columns: 1fr;
             }
+            
+            .copy-success {
+                right: auto;
+                left: 50%;
+                top: -35px;
+                transform: translateX(-50%);
+            }
         }
         
         .loading {
@@ -758,10 +815,45 @@
         const { useState, useEffect, useRef, useCallback } = React;
         
         // Конфігурація
-       const SERVER_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3001' 
-  : 'https://doodle-prophet-unicorn-canvas-cobra.onrender.com/';
-
+        const SERVER_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001' 
+            : 'https://doodle-prophet-unicorn-canvas-cobra.onrender.com/';
+        
+        // Функції для копіювання в буфер обміну
+        function copyToClipboard(text, onSuccess) {
+            // Сучасний спосіб через Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text)
+                    .then(() => onSuccess())
+                    .catch(err => {
+                        // Fallback на старий метод
+                        fallbackCopyToClipboard(text, onSuccess);
+                    });
+            } else {
+                // Fallback для старих браузерів
+                fallbackCopyToClipboard(text, onSuccess);
+            }
+        }
+        
+        function fallbackCopyToClipboard(text, onSuccess) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                onSuccess();
+            } catch (err) {
+                console.error('Не вдалося скопіювати:', err);
+            } finally {
+                textArea.remove();
+            }
+        }
         
         // Головний компонент гри
         function Game() {
@@ -781,6 +873,7 @@
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [finishedDrawingPlayers, setFinishedDrawingPlayers] = useState(new Set());
+            const [codeCopied, setCodeCopied] = useState(false);
             
             // Ініціалізація Socket.io
             useEffect(() => {
@@ -959,6 +1052,13 @@
                 }
             };
             
+            const handleCopyCode = () => {
+                copyToClipboard(roomCode, () => {
+                    setCodeCopied(true);
+                    setTimeout(() => setCodeCopied(false), 2000);
+                });
+            };
+            
             // Рендер різних екранів
             if (gameState === 'menu') {
                 const hasRoomCode = roomCode.trim().length > 0;
@@ -1027,7 +1127,15 @@
                             
                             <div className="room-code">
                                 <h2>Код кімнати:</h2>
-                                <div className="code">{roomCode}</div>
+                                <div 
+                                    className="code clickable-code"
+                                    onClick={handleCopyCode}
+                                    title="Натисніть щоб скопіювати"
+                                >
+                                    {roomCode}
+                                    {codeCopied && <span className="copy-success">✓ Скопійовано!</span>}
+                                </div>
+                                <div className="code-hint">Натисніть на код щоб скопіювати</div>
                             </div>
                             
                             <div className="rules-section">

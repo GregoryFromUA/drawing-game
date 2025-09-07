@@ -203,14 +203,23 @@ class GameRoom {
     };
     
     // Ініціалізуємо черги очок
-    const sequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
+    // Для очок за відгадування: кількість = players.size - 1 (не відгадуєш себе)
+    const guessSequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
     for (let [playerId] of this.players) {
       this.roundData.playerScoreSequences.set(
         playerId, 
-        [...SCORE_SEQUENCE.slice(0, sequenceLength)]
+        [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
       );
     }
-    this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, sequenceLength)];
+    
+    // ВИПРАВЛЕННЯ: Для чорних жетонів: кількість = players.size (всі можуть завершити)
+    const blackTokenSequenceLength = Math.min(this.players.size, SCORE_SEQUENCE.length);
+    this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, blackTokenSequenceLength)];
+    
+    console.log(`Round ${this.currentRound} initialized:`);
+    console.log(`- Players: ${this.players.size}`);
+    console.log(`- Guess sequence length: ${guessSequenceLength}`);
+    console.log(`- Black token sequence: [${this.roundData.blackTokenSequence.join(', ')}]`);
     
     this.state = 'playing';
     
@@ -282,8 +291,11 @@ class GameRoom {
     if (this.roundData.blackTokenSequence.length > 0) {
       const token = this.roundData.blackTokenSequence.shift();
       this.blackTokensGiven.push({ playerId, score: token });
+      console.log(`Player ${playerId} received black token: ${token} points`);
+      console.log(`Remaining black tokens: [${this.roundData.blackTokenSequence.join(', ')}]`);
       return token;
     }
+    console.log(`Player ${playerId} finished but no black tokens left`);
     return 0;
   }
 
@@ -331,6 +343,7 @@ class GameRoom {
     for (let { playerId, score } of this.blackTokensGiven) {
       const current = roundScores.get(playerId) || 0;
       roundScores.set(playerId, current + score);
+      console.log(`Adding black token score for ${playerId}: +${score}`);
     }
     
     // Оновлюємо загальні очки
@@ -338,6 +351,9 @@ class GameRoom {
       const current = this.scores.get(playerId) || 0;
       this.scores.set(playerId, current + points);
     }
+    
+    console.log('Round scores:', Object.fromEntries(roundScores));
+    console.log('Total scores:', Object.fromEntries(this.scores));
     
     return {
       roundScores: Object.fromEntries(roundScores),
