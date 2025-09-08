@@ -20,47 +20,63 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
+            overflow-x: hidden;
         }
         
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
+        /* Меню та лобі стилі */
+        .lobby-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
             padding: 20px;
         }
         
         .lobby {
             background: white;
             border-radius: 20px;
-            padding: 40px;
+            padding: 30px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 700px;
-            margin: 50px auto;
+            max-width: 900px;
+            width: 100%;
         }
         
         .lobby h1 {
             text-align: center;
             color: #667eea;
-            margin-bottom: 30px;
-            font-size: 2.2em;
+            margin-bottom: 25px;
+            font-size: 2em;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
         
+        .lobby-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+        
+        .lobby-left, .lobby-right {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
         .room-code {
             background: #f0f0f0;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
             text-align: center;
-            margin: 20px 0;
         }
         
         .room-code h2 {
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 1.1em;
         }
         
         .room-code .code {
-            font-size: 2em;
+            font-size: 1.8em;
             font-weight: bold;
             letter-spacing: 5px;
             color: #333;
@@ -71,7 +87,7 @@
             position: relative;
             transition: all 0.3s ease;
             user-select: all;
-            padding: 10px;
+            padding: 8px;
             border-radius: 10px;
         }
         
@@ -109,9 +125,9 @@
         }
         
         .code-hint {
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: #888;
-            margin-top: 10px;
+            margin-top: 5px;
             text-align: center;
             font-style: italic;
         }
@@ -119,15 +135,14 @@
         .rules-section {
             background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
             border: 2px solid #ff9800;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 20px 0;
+            border-radius: 10px;
+            padding: 15px;
         }
         
         .rules-section h3 {
             color: #e65100;
-            margin-bottom: 15px;
-            font-size: 1.3em;
+            margin-bottom: 10px;
+            font-size: 1.1em;
             text-align: center;
         }
         
@@ -137,10 +152,11 @@
         }
         
         .rules-section li {
-            padding: 8px 0;
-            padding-left: 25px;
+            padding: 5px 0;
+            padding-left: 20px;
             position: relative;
-            line-height: 1.5;
+            line-height: 1.4;
+            font-size: 0.9em;
         }
         
         .rules-section li::before {
@@ -150,17 +166,26 @@
         }
         
         .players-list {
-            margin: 20px 0;
+            background: #f8f8f8;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .players-list h3 {
+            margin-bottom: 10px;
+            color: #667eea;
         }
         
         .player-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 15px;
-            background: #f8f8f8;
-            margin: 10px 0;
-            border-radius: 10px;
+            padding: 10px;
+            background: white;
+            margin: 8px 0;
+            border-radius: 8px;
             transition: all 0.3s;
         }
         
@@ -176,13 +201,13 @@
         
         .player-name {
             font-weight: 600;
-            font-size: 1.1em;
+            font-size: 0.95em;
         }
         
         .player-status {
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
             background: white;
         }
         
@@ -191,23 +216,30 @@
             color: white;
         }
         
+        .lobby-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
         .input-group {
-            margin: 20px 0;
+            margin: 15px 0;
         }
         
         .input-group label {
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-weight: 600;
             color: #555;
+            font-size: 0.9em;
         }
         
         .input-group input {
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1.1em;
+            border-radius: 8px;
+            font-size: 1em;
             transition: border-color 0.3s;
         }
         
@@ -217,15 +249,14 @@
         }
         
         .btn {
-            padding: 15px 30px;
+            padding: 12px 25px;
             border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
+            border-radius: 8px;
+            font-size: 1em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            width: 100%;
-            margin: 10px 0;
+            flex: 1;
         }
         
         .btn-primary {
@@ -263,175 +294,124 @@
             color: white;
         }
         
+        /* НОВИЙ LAYOUT ДЛЯ ГРИ */
         .game-container {
             background: white;
-            border-radius: 20px;
-            padding: 20px;
-            min-height: calc(100vh - 40px);
-        }
-        
-        .game-header {
+            height: 100vh;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: #f8f8f8;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            overflow: hidden;
         }
         
-        .round-info {
-            font-size: 1.2em;
-            font-weight: 600;
-            color: #667eea;
+        /* Основна зона гри */
+        .game-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
         }
         
-        .word-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8f8f8;
-            border-radius: 15px;
-        }
-        
-        .word-card {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .word-card h3 {
-            color: #667eea;
+        /* Верхня частина з інструментами та канвасом */
+        .game-top {
+            display: flex;
+            gap: 15px;
             margin-bottom: 10px;
-            text-align: center;
         }
         
-        .word-list {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+        /* Ліва панель інструментів */
+        .tools-panel {
+            width: 180px;
+            background: #f8f8f8;
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
         }
         
-        .word-item {
-            padding: 8px;
-            background: #f0f0f0;
-            border-radius: 5px;
-            text-align: center;
-            font-size: 0.95em;
-            position: relative;
-        }
-        
-        .word-item.my-word {
-            background: #ffd700;
-            font-weight: bold;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        .word-number {
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            background: #667eea;
-            color: white;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-        
-        .personal-task {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            padding: 20px;
-            border-radius: 15px;
-            margin: 20px 0;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
-        }
-        
-        .personal-task h3 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .personal-task .task-word {
-            font-size: 2em;
-            font-weight: bold;
-            color: #333;
-            margin: 10px 0;
-        }
-        
-        .personal-task .task-info {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 10px;
-        }
-        
-        .task-badge {
-            padding: 5px 15px;
+        .game-status {
             background: white;
-            border-radius: 20px;
+            padding: 8px;
+            border-radius: 8px;
+        }
+        
+        .round-info {
+            font-size: 0.95em;
             font-weight: 600;
-        }
-        
-        .drawing-section {
-            display: flex;
-            gap: 20px;
-            margin: 20px 0;
-            justify-content: center;
-            align-items: flex-start;
-        }
-        
-        .tools-panel {
-            background: #f8f8f8;
-            padding: 15px;
-            border-radius: 15px;
-            height: fit-content;
-            width: 220px;
-            flex-shrink: 0;
-        }
-        
-        .tools-panel h3 {
-            margin-bottom: 15px;
             color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .help-button {
+            padding: 5px 10px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .help-button:hover {
+            background: #1976d2;
+        }
+        
+        .tools-section h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 0.9em;
         }
         
         .tool-group {
-            margin: 15px 0;
+            margin-bottom: 10px;
         }
         
         .tool-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             font-weight: 600;
             color: #555;
-            font-size: 0.9em;
+            font-size: 0.8em;
+        }
+        
+        .tool-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .tool-btn {
+            flex: 1;
+            padding: 5px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+        }
+        
+        .tool-btn:hover {
+            border-color: #667eea;
+        }
+        
+        .tool-btn.active {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
         }
         
         .color-palette {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 4px;
         }
         
         .color-btn {
-            width: 35px;
-            height: 35px;
-            border: 3px solid transparent;
-            border-radius: 8px;
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid transparent;
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -442,19 +422,19 @@
         
         .color-btn.active {
             border-color: #333;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            box-shadow: 0 0 8px rgba(0,0,0,0.3);
         }
         
         .size-selector {
             display: flex;
-            gap: 8px;
+            gap: 4px;
         }
         
         .size-btn {
-            width: 35px;
-            height: 35px;
+            flex: 1;
+            aspect-ratio: 1;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 4px;
             background: white;
             cursor: pointer;
             display: flex;
@@ -481,14 +461,60 @@
             background: white;
         }
         
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: auto;
+        }
+        
+        .action-btn {
+            padding: 6px;
+            border: none;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.8em;
+        }
+        
+        /* Центральна зона з канвасом */
+        .canvas-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .task-header {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+        }
+        
+        .task-word {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .my-canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 10px;
+        }
+        
         .canvas-container {
             background: white;
             border: 3px solid #e0e0e0;
-            border-radius: 15px;
-            padding: 10px;
+            border-radius: 10px;
+            padding: 8px;
             position: relative;
-            max-width: 660px;
-            margin: 0 auto;
         }
         
         .canvas-container.locked {
@@ -506,15 +532,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 12px;
+            border-radius: 8px;
             z-index: 10;
         }
         
         .lock-message {
             background: #f44336;
             color: white;
-            padding: 10px 20px;
-            border-radius: 10px;
+            padding: 8px 16px;
+            border-radius: 8px;
             font-weight: 600;
         }
         
@@ -522,27 +548,46 @@
             display: block;
             cursor: crosshair;
             background: white;
-            border-radius: 10px;
+            border-radius: 8px;
             image-rendering: auto;
-            max-width: 100%;
-            height: auto;
         }
         
-        .other-drawings {
+        /* Нижня секція з канвасами інших гравців */
+        .others-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f0f4f8;
+            border-radius: 10px;
+            padding: 10px;
+            min-height: 0;
+        }
+        
+        .others-header {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        
+        .others-content {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .others-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-            justify-items: center;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
         }
         
         .drawing-card {
             background: white;
             border: 2px solid #e0e0e0;
-            border-radius: 15px;
-            padding: 10px;
+            border-radius: 10px;
+            padding: 8px;
             position: relative;
-            width: 260px;
         }
         
         .drawing-card.guessed {
@@ -554,26 +599,26 @@
             text-align: center;
             font-weight: 600;
             color: #667eea;
-            margin-bottom: 10px;
-            font-size: 0.95em;
+            margin-bottom: 6px;
+            font-size: 0.85em;
         }
         
         .guess-controls {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 4px;
-            margin-top: 8px;
+            gap: 3px;
+            margin-top: 6px;
         }
         
         .guess-btn {
-            padding: 6px;
+            padding: 4px;
             border: 2px solid #e0e0e0;
             background: white;
-            border-radius: 8px;
+            border-radius: 5px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            font-size: 0.9em;
+            font-size: 0.8em;
         }
         
         .guess-btn:hover:not(:disabled) {
@@ -600,46 +645,170 @@
             text-decoration: line-through;
         }
         
-        .score-hint {
+        .finish-guessing-btn {
+            margin-top: 8px;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            align-self: center;
+        }
+        
+        .finish-guessing-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+        }
+        
+        .finish-guessing-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Права панель з картками */
+        .cards-panel {
+            width: 350px;
+            background: #f8f8f8;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+        
+        .word-card {
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+        
+        .word-item {
+            padding: 4px 6px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75em;
+            transition: all 0.3s;
+        }
+        
+        .word-item:hover {
+            background: #e8e8e8;
+        }
+        
+        .word-item.my-word {
+            background: #ffd700;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .word-number {
+            background: #667eea;
+            color: white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65em;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .word-text {
+            flex: 1;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+        
+        /* Модальне вікно для правил */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            color: #667eea;
+            font-size: 1.5em;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .score-info {
             background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
             border: 2px solid #2196f3;
             border-radius: 15px;
             padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 4px 10px rgba(33, 150, 243, 0.2);
+            margin: 15px 0;
         }
         
-        .score-hint h4 {
+        .score-info h3 {
             color: #1565c0;
             margin-bottom: 15px;
-            font-size: 1.2em;
-            text-align: center;
         }
         
-        .score-hint-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
-        .score-hint-item {
-            background: white;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        
-        .score-hint-item h5 {
-            color: #1976d2;
-            margin-bottom: 8px;
-            font-size: 1em;
-        }
-        
-        .score-hint-item p {
-            font-size: 0.9em;
-            line-height: 1.4;
+        .score-info p {
+            line-height: 1.6;
             color: #555;
         }
         
+        /* Результати */
         .results-modal {
             position: fixed;
             top: 0;
@@ -727,46 +896,43 @@
             margin-top: 10px;
         }
         
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
+        /* Адаптивність для менших екранів */
+        @media (max-width: 1400px) {
+            .cards-panel {
+                width: 320px;
             }
             
+            .word-item {
+                font-size: 0.7em;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .lobby-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .game-container {
+                flex-direction: column;
+            }
+            
+            .game-main {
+                height: auto;
+            }
+            
+            .cards-panel {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+            }
+        }
+        
+        @media (max-width: 768px) {
             .lobby {
                 padding: 20px;
-                margin: 20px auto;
             }
             
-            .word-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .word-list {
-                grid-template-columns: repeat(3, 1fr);
-                font-size: 0.85em;
-            }
-            
-            .drawing-section {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .canvas-container {
-                max-width: 100%;
-            }
-            
-            .tools-panel {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 15px;
-                justify-content: space-around;
-            }
-            
-            .other-drawings {
-                grid-template-columns: 1fr;
-            }
-            
-            .score-hint-content {
+            .others-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -1066,7 +1232,7 @@
                 const canJoin = hasRoomCode && hasPlayerName;
                 
                 return (
-                    <div className="container">
+                    <div className="lobby-container">
                         <div className="lobby">
                             <h1>Doodle Prophet Unicorn Canvas Cobra</h1>
                             
@@ -1079,7 +1245,7 @@
                                     value={playerName}
                                     onChange={(e) => setPlayerName(e.target.value)}
                                     placeholder={hasRoomCode && !hasPlayerName ? "Введіть своє ім'я ТУТ" : "Captain Obvious"}
-                                    maxLength={20}
+                                    maxLength={30}
                                     style={hasRoomCode && !hasPlayerName ? {borderColor: '#ff9800', borderWidth: '2px'} : {}}
                                 />
                             </div>
@@ -1088,11 +1254,12 @@
                                 className="btn btn-primary"
                                 onClick={createRoom}
                                 disabled={!playerName.trim()}
+                                style={{ width: '100%', marginBottom: '15px' }}
                             >
                                 Створити кімнату
                             </button>
                             
-                            <div style={{ margin: '20px 0', textAlign: 'center' }}>
+                            <div style={{ margin: '15px 0', textAlign: 'center' }}>
                                 <span style={{ color: '#999' }}>— або —</span>
                             </div>
                             
@@ -1111,6 +1278,7 @@
                                 className={`btn ${canJoin ? 'btn-success' : 'btn-secondary'}`}
                                 onClick={joinRoom}
                                 disabled={!canJoin}
+                                style={{ width: '100%' }}
                             >
                                 Приєднатися до кімнати
                             </button>
@@ -1121,69 +1289,75 @@
             
             if (gameState === 'lobby') {
                 return (
-                    <div className="container">
+                    <div className="lobby-container">
                         <div className="lobby">
                             <h1>Кімната очікування</h1>
                             
-                            <div className="room-code">
-                                <h2>Код кімнати:</h2>
-                                <div 
-                                    className="code clickable-code"
-                                    onClick={handleCopyCode}
-                                    title="Натисніть щоб скопіювати"
-                                >
-                                    {roomCode}
-                                    {codeCopied && <span className="copy-success">✓ Скопійовано!</span>}
-                                </div>
-                                <div className="code-hint">Натисніть на код щоб скопіювати</div>
-                            </div>
-                            
-                            <div className="rules-section">
-                                <h3>ПРАВИЛА МАЛЮВАННЯ</h3>
-                                <ul>
-                                    <li>1. НЕ МОЖНА - Малювати літери. Наприклад, якщо вам випало слово "КНИГА", ви не можете намалювати літери К-Н-И-Г-А.</li>
-                                    <li>2. НЕ МОЖНА - Використовувати цифри чи символи, які прямо вказують на слово. Наприклад, для слова "сім'я" не можна намалювати цифру 7 і літеру Я.</li>
-                                    <li>3. Заборонено за допомогою малюнка натякати на літеру чи цифру вашого завдання</li>
-									<li>Вам потрібно передати ідею, суть, концепцію слова через візуальні образи чи асоціації.</li>
-                                </ul>
-                            </div>
-                            
-                            <div className="players-list">
-                                <h3>Гравці ({roomData?.players?.length || 0}/9):</h3>
-                                {roomData?.players?.map(player => (
-                                    <div 
-                                        key={player.id}
-                                        className={`player-item ${player.ready ? 'ready' : ''} ${!player.connected ? 'disconnected' : ''}`}
-                                    >
-                                        <span className="player-name">
-                                            {player.name}
-                                            {player.id === playerId && ' (Ви)'}
-                                            {player.id === roomData.hostId && ' 👑'}
-                                        </span>
-                                        <span className={`player-status ${player.ready ? 'ready-badge' : ''}`}>
-                                            {!player.connected ? 'Відключений' : player.ready ? 'Готовий' : 'Не готовий'}
-                                        </span>
+                            <div className="lobby-content">
+                                <div className="lobby-left">
+                                    <div className="room-code">
+                                        <h2>Код кімнати:</h2>
+                                        <div 
+                                            className="code clickable-code"
+                                            onClick={handleCopyCode}
+                                            title="Натисніть щоб скопіювати"
+                                        >
+                                            {roomCode}
+                                            {codeCopied && <span className="copy-success">✓ Скопійовано!</span>}
+                                        </div>
+                                        <div className="code-hint">Натисніть на код щоб скопіювати</div>
                                     </div>
-                                ))}
+                                    
+                                    <div className="rules-section">
+                                        <h3>ПРАВИЛА МАЛЮВАННЯ</h3>
+                                        <ul>
+                                            <li>НЕ малюйте літери чи цифри</li>
+                                            <li>НЕ використовуйте символи що прямо вказують на слово</li>
+                                            <li>Передавайте ідею через візуальні образи</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <div className="lobby-right">
+                                    <div className="players-list">
+                                        <h3>Гравці ({roomData?.players?.length || 0}/9):</h3>
+                                        {roomData?.players?.map(player => (
+                                            <div 
+                                                key={player.id}
+                                                className={`player-item ${player.ready ? 'ready' : ''} ${!player.connected ? 'disconnected' : ''}`}
+                                            >
+                                                <span className="player-name">
+                                                    {player.name}
+                                                    {player.id === playerId && ' (Ви)'}
+                                                    {player.id === roomData.hostId && ' 👑'}
+                                                </span>
+                                                <span className={`player-status ${player.ready ? 'ready-badge' : ''}`}>
+                                                    {!player.connected ? 'Відкл.' : player.ready ? 'Готовий' : 'Не готовий'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    <div className="lobby-buttons">
+                                        <button 
+                                            className={`btn ${roomData?.players?.find(p => p.id === playerId)?.ready ? 'btn-danger' : 'btn-success'}`}
+                                            onClick={toggleReady}
+                                        >
+                                            {roomData?.players?.find(p => p.id === playerId)?.ready ? 'Не готовий' : 'Готовий'}
+                                        </button>
+                                        
+                                        {isHost && (
+                                            <button 
+                                                className="btn btn-primary"
+                                                onClick={startGame}
+                                                disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
+                                            >
+                                                {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Почати гру'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <button 
-                                className={`btn ${roomData?.players?.find(p => p.id === playerId)?.ready ? 'btn-danger' : 'btn-success'}`}
-                                onClick={toggleReady}
-                            >
-                                {roomData?.players?.find(p => p.id === playerId)?.ready ? 'Не готовий' : 'Готовий'}
-                            </button>
-                            
-                            {isHost && (
-                                <button 
-                                    className="btn btn-primary"
-                                    onClick={startGame}
-                                    disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
-                                >
-                                    Почати гру
-                                    {roomData?.players?.length < 3 && ' (мінімум 3 гравці)'}
-                                </button>
-                            )}
                         </div>
                     </div>
                 );
@@ -1320,7 +1494,54 @@
             return <div className="loading"><div className="loading-spinner"></div></div>;
         }
         
-        // Компонент ігрової дошки
+        // Компонент модального вікна з правилами
+        function ScoreRulesModal({ onClose }) {
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Як рахуються очки</h2>
+                            <button className="modal-close" onClick={onClose}>✕</button>
+                        </div>
+                        
+                        <div className="score-info">
+                            <h3>Очки за відгадування</h3>
+                            <p>
+                                Чим швидше за інших гравців ви правильно відгадаєте малюнок художника, 
+                                тим більше очок від нього отримаєте. Черга очок: 4→3→3→2→2→2→1→1
+                            </p>
+                            <p>
+                                Якщо ви перший відгадали малюнок - отримуєте 4 очки, другий - 3 очки, і так далі.
+                            </p>
+                        </div>
+                        
+                        <div className="score-info">
+                            <h3>Бонусні очки за швидкість</h3>
+                            <p>
+                                Чим швидше ви завершите відгадування ВСІХ малюнків інших гравців, 
+                                тим більший бонус очок отримаєте. Черга бонусів: 4→3→3→2→2→2→1→1
+                            </p>
+                            <p>
+                                Натисніть кнопку "Завершив відгадування" коли відгадали всі малюнки, 
+                                щоб отримати бонусні очки.
+                            </p>
+                        </div>
+                        
+                        <div className="score-info">
+                            <h3>Максимальні очки за раунд</h3>
+                            <p>
+                                Формула: (Кількість гравців - 1) × 4 + 4
+                            </p>
+                            <p>
+                                Наприклад, для 3 гравців максимум = 12 очок, для 9 гравців = 36 очок
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // НОВИЙ КОМПОНЕНТ ІГРОВОЇ ДОШКИ
         function GameBoard({ 
             socket, 
             playerId, 
@@ -1343,6 +1564,7 @@
             const [hasFinishedDrawing, setHasFinishedDrawing] = useState(false);
             const [hasFinishedGuessing, setHasFinishedGuessing] = useState(false);
             const [myDrawingData, setMyDrawingData] = useState([]);
+            const [showScoreRules, setShowScoreRules] = useState(false);
             const strokeBufferRef = useRef([]);
             const lastXRef = useRef(null);
             const lastYRef = useRef(null);
@@ -1393,16 +1615,6 @@
                     // ВАЖЛИВО: Заповнюємо білим фоном
                     ctx.fillStyle = 'white';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    
-                    const container = canvas.parentElement;
-                    const containerWidth = container.getBoundingClientRect().width - 20;
-                    if (containerWidth < 640) {
-                        canvas.style.width = containerWidth + 'px';
-                        canvas.style.height = (containerWidth * 0.75) + 'px';
-                    } else {
-                        canvas.style.width = '640px';
-                        canvas.style.height = '480px';
-                    }
                 }
             }, []);
             
@@ -1545,192 +1757,211 @@
             const myAssignment = roundData?.personalAssignment;
             const otherPlayers = roundData?.players?.filter(p => p.id !== playerId) || [];
             
+            // Групуємо слова по картках
+            const wordsByCard = {
+                A: roundData?.wordSet?.A || [],
+                B: roundData?.wordSet?.B || [],
+                C: roundData?.wordSet?.C || []
+            };
+            
             return (
-                <div className="game-container">
-                    <div className="game-header">
-                        <div className="round-info">Раунд {roundData?.round} з 4</div>
-                    </div>
-                    
-                    {myAssignment && (
-                        <div className="personal-task">
-                            <h3>Ваше завдання:</h3>
-                            <div className="task-word">{myAssignment.word}</div>
-                            <div className="task-info">
-                                <span className="task-badge">Карта {myAssignment.letter}</span>
-                                <span className="task-badge">Номер {myAssignment.number}</span>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="drawing-section">
-                        <div className="tools-panel">
-                            <h3>Інструменти</h3>
-                            
-                            <div className="tool-group">
-                                <label>Тип:</label>
-                                <div style={{ display: 'flex', gap: '5px' }}>
-                                    <button 
-                                        className={`btn btn-secondary ${currentTool === 'pen' ? 'active' : ''}`}
-                                        onClick={() => setCurrentTool('pen')}
-                                        disabled={isDrawingLocked || hasFinishedDrawing}
-                                        style={{ padding: '8px 12px', fontSize: '0.9em' }}
-                                    >
-                                        ✏️
-                                    </button>
-                                    <button 
-                                        className={`btn btn-secondary ${currentTool === 'eraser' ? 'active' : ''}`}
-                                        onClick={() => setCurrentTool('eraser')}
-                                        disabled={isDrawingLocked || hasFinishedDrawing}
-                                        style={{ padding: '8px 12px', fontSize: '0.9em' }}
-                                    >
-                                        🧹
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="tool-group">
-                                <label>Колір:</label>
-                                <div className="color-palette">
-                                    {colors.map(color => (
-                                        <button
-                                            key={color}
-                                            className={`color-btn ${currentColor === color ? 'active' : ''}`}
-                                            style={{ backgroundColor: color }}
-                                            onClick={() => setCurrentColor(color)}
-                                            disabled={isDrawingLocked || hasFinishedDrawing || currentTool === 'eraser'}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            <div className="tool-group">
-                                <label>Розмір:</label>
-                                <div className="size-selector">
-                                    {sizes.map(size => (
-                                        <button
-                                            key={size}
-                                            className={`size-btn ${currentSize === size ? 'active' : ''}`}
-                                            onClick={() => setCurrentSize(size)}
-                                            disabled={isDrawingLocked || hasFinishedDrawing}
+                <>
+                    <div className="game-container">
+                        {/* Основна зона гри */}
+                        <div className="game-main">
+                            {/* Верхня частина */}
+                            <div className="game-top">
+                                {/* Ліва панель інструментів */}
+                                <div className="tools-panel">
+                                    <div className="game-status">
+                                        <div className="round-info">Раунд {roundData?.round} з 4</div>
+                                        <button 
+                                            className="help-button"
+                                            onClick={() => setShowScoreRules(true)}
                                         >
-                                            <div 
-                                                className="size-dot" 
-                                                style={{ width: size * 0.7, height: size * 0.7 }}
-                                            />
+                                            ❓ Як рахуються очки
                                         </button>
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            <button 
-                                className="btn btn-danger"
-                                onClick={clearCanvas}
-                                disabled={isDrawingLocked || hasFinishedDrawing}
-                                style={{ fontSize: '0.9em', padding: '10px' }}
-                            >
-                                Очистити
-                            </button>
-                            
-                            {!hasFinishedDrawing && (
-                                <button 
-                                    className="btn btn-success"
-                                    onClick={handleFinishDrawing}
-                                    disabled={isDrawingLocked}
-                                    style={{ fontSize: '0.9em', padding: '10px' }}
-                                >
-                                    Готово
-                                </button>
-                            )}
-                        </div>
-                        
-                        <div className={`canvas-container ${isDrawingLocked ? 'locked' : ''}`}>
-                            {isDrawingLocked && (
-                                <div className="canvas-lock-overlay">
-                                    <div className="lock-message">
-                                        Малюнок заблоковано
+                                    </div>
+                                    
+                                    <div className="tools-section">
+                                        <h3>Інструменти</h3>
+                                        
+                                        <div className="tool-group">
+                                            <label>Тип:</label>
+                                            <div className="tool-buttons">
+                                                <button 
+                                                    className={`tool-btn ${currentTool === 'pen' ? 'active' : ''}`}
+                                                    onClick={() => setCurrentTool('pen')}
+                                                    disabled={isDrawingLocked || hasFinishedDrawing}
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button 
+                                                    className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
+                                                    onClick={() => setCurrentTool('eraser')}
+                                                    disabled={isDrawingLocked || hasFinishedDrawing}
+                                                >
+                                                    🧹
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="tool-group">
+                                            <label>Колір:</label>
+                                            <div className="color-palette">
+                                                {colors.map(color => (
+                                                    <button
+                                                        key={color}
+                                                        className={`color-btn ${currentColor === color ? 'active' : ''}`}
+                                                        style={{ backgroundColor: color }}
+                                                        onClick={() => setCurrentColor(color)}
+                                                        disabled={isDrawingLocked || hasFinishedDrawing || currentTool === 'eraser'}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="tool-group">
+                                            <label>Розмір:</label>
+                                            <div className="size-selector">
+                                                {sizes.map(size => (
+                                                    <button
+                                                        key={size}
+                                                        className={`size-btn ${currentSize === size ? 'active' : ''}`}
+                                                        onClick={() => setCurrentSize(size)}
+                                                        disabled={isDrawingLocked || hasFinishedDrawing}
+                                                    >
+                                                        <div 
+                                                            className="size-dot" 
+                                                            style={{ width: size * 0.5, height: size * 0.5 }}
+                                                        />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="action-buttons">
+                                            <button 
+                                                className="action-btn btn-danger"
+                                                onClick={clearCanvas}
+                                                disabled={isDrawingLocked || hasFinishedDrawing}
+                                            >
+                                                Очистити
+                                            </button>
+                                            
+                                            {!hasFinishedDrawing && (
+                                                <button 
+                                                    className="action-btn btn-success"
+                                                    onClick={handleFinishDrawing}
+                                                    disabled={isDrawingLocked}
+                                                >
+                                                    Завершити малювання
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            )}
-                            <canvas
-                                ref={canvasRef}
-                                onMouseDown={startDrawing}
-                                onMouseMove={draw}
-                                onMouseUp={stopDrawing}
-                                onMouseLeave={stopDrawing}
-                                onTouchStart={startDrawing}
-                                onTouchMove={draw}
-                                onTouchEnd={stopDrawing}
-                                style={{ 
-                                    cursor: isDrawingLocked ? 'not-allowed' : currentTool === 'eraser' ? 'grab' : 'crosshair',
-                                    touchAction: 'none'
-                                }}
-                            />
-                        </div>
-                    </div>
-                    
-                    <h3 style={{ marginTop: '30px', color: '#667eea' }}>Відгадайте малюнки інших гравців:</h3>
-                    <div className="other-drawings">
-                        {otherPlayers.map(player => (
-                            <OtherPlayerDrawing
-                                key={player.id}
-                                player={player}
-                                drawing={drawings[player.id] || []}
-                                guess={myGuesses[player.id]}
-                                usedNumbers={usedNumbers}
-                                makeGuess={makeGuess}
-                                myNumber={myAssignment?.number}
-                                isFinished={finishedDrawingPlayers.has(player.id)}
-                            />
-                        ))}
-                    </div>
-                    
-                    <div className="word-grid">
-                        {['A', 'B', 'C'].map(letter => (
-                            <div key={letter} className="word-card">
-                                <h3>Карта {letter}</h3>
-                                <div className="word-list">
-                                    {roundData?.wordSet?.[letter]?.map((word, index) => (
-                                        <div 
-                                            key={index}
-                                            className={`word-item ${
-                                                myAssignment?.letter === letter && myAssignment?.number === index + 1 
-                                                    ? 'my-word' 
-                                                    : ''
-                                            }`}
-                                        >
-                                            <span className="word-number">{index + 1}</span>
-                                            {word}
+                                
+                                {/* Центральна зона з канвасом */}
+                                <div className="canvas-section">
+                                    {/* Завдання */}
+                                    {myAssignment && (
+                                        <div className="task-header">
+                                            <div className="task-word">{myAssignment.word}</div>
                                         </div>
-                                    ))}
+                                    )}
+                                    
+                                    {/* Мій канвас */}
+                                    <div className="my-canvas-wrapper">
+                                        <div className={`canvas-container ${isDrawingLocked ? 'locked' : ''}`}>
+                                            {isDrawingLocked && (
+                                                <div className="canvas-lock-overlay">
+                                                    <div className="lock-message">
+                                                        Малюнок заблоковано
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <canvas
+                                                ref={canvasRef}
+                                                width={640}
+                                                height={480}
+                                                onMouseDown={startDrawing}
+                                                onMouseMove={draw}
+                                                onMouseUp={stopDrawing}
+                                                onMouseLeave={stopDrawing}
+                                                onTouchStart={startDrawing}
+                                                onTouchMove={draw}
+                                                onTouchEnd={stopDrawing}
+                                                style={{ 
+                                                    cursor: isDrawingLocked ? 'not-allowed' : currentTool === 'eraser' ? 'grab' : 'crosshair',
+                                                    touchAction: 'none'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                    
-                    <div className="score-hint">
-                        <h4>Як рахуються очки:</h4>
-                        <div className="score-hint-content">
-                            <div className="score-hint-item">
-                                <h5>Очки за відгадування</h5>
-                                <p>Чим швидше за інших гравців ви правильно відгадаєте малюнок художника, тим більше очок від нього отримаєте. (4→3→3→2→2→2→1→1)</p>
+                            
+                            {/* Нижня секція з канвасами інших */}
+                            <div className="others-section">
+                                <h3 className="others-header">Відгадайте малюнки інших гравців:</h3>
+                                <div className="others-content">
+                                    <div className="others-grid">
+                                        {otherPlayers.map(player => (
+                                            <OtherPlayerDrawing
+                                                key={player.id}
+                                                player={player}
+                                                drawing={drawings[player.id] || []}
+                                                guess={myGuesses[player.id]}
+                                                usedNumbers={usedNumbers}
+                                                makeGuess={makeGuess}
+                                                myNumber={myAssignment?.number}
+                                                isFinished={finishedDrawingPlayers.has(player.id)}
+                                            />
+                                        ))}
+                                    </div>
+                                    
+                                    {!hasFinishedGuessing && otherPlayers.length > 0 && (
+                                        <button 
+                                            className="finish-guessing-btn"
+                                            onClick={handleFinishGuessing}
+                                        >
+                                            Завершив відгадування
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <div className="score-hint-item">
-                                <h5>Бонусні очки за швидкість</h5>
-                                <p>Чим швидше ви завершите відгадування ВСІХ малюнків інших гравців, тим більший бонус очок отримаєте. (4→3→3→2→2→2→1→1)</p>
-                            </div>
+                        </div>
+                        
+                        {/* Права панель з картками */}
+                        <div className="cards-panel">
+                            {['A', 'B', 'C'].map(letter => (
+                                <div key={letter} className="word-card">
+                                    <div className="word-grid">
+                                        {wordsByCard[letter].map((word, index) => (
+                                            <div 
+                                                key={index}
+                                                className={`word-item ${
+                                                    myAssignment?.letter === letter && myAssignment?.number === index + 1 
+                                                        ? 'my-word' 
+                                                        : ''
+                                                }`}
+                                                title={word}
+                                            >
+                                                <span className="word-number">{index + 1}</span>
+                                                <span className="word-text">{word}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                     
-                    {!hasFinishedGuessing && otherPlayers.length > 0 && (
-                        <button 
-                            className="btn btn-primary"
-                            onClick={handleFinishGuessing}
-                            style={{ margin: '20px auto', display: 'block', maxWidth: '300px' }}
-                        >
-                            Завершив відгадування
-                        </button>
+                    {showScoreRules && (
+                        <ScoreRulesModal onClose={() => setShowScoreRules(false)} />
                     )}
-                </div>
+                </>
             );
         }
         
@@ -1816,21 +2047,19 @@
                     className={`drawing-card ${guess ? 'guessed' : ''}`}
                     style={isFinished ? {
                         border: '3px solid #FFD700',
-                        boxShadow: '0 0 15px rgba(255, 215, 0, 0.5)',
+                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
                         backgroundColor: '#FFFACD'
                     } : {}}
                 >
                     <div className="drawing-player-name">
                         {player.name}
-                        {isFinished && <span style={{ color: '#FFA500', marginLeft: '10px' }}>✅ Готово!</span>}
+                        {isFinished && <span style={{ color: '#FFA500', marginLeft: '8px' }}>✅</span>}
                     </div>
                     <canvas 
                         ref={canvasRef} 
                         style={{ 
-                            width: '100%', 
-                            maxWidth: '240px',
-                            height: '180px',
-                            borderRadius: '10px',
+                            width: '100%',
+                            borderRadius: '8px',
                             background: 'white',
                             border: '1px solid #e0e0e0'
                         }} 
