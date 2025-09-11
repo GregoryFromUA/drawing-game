@@ -53,6 +53,8 @@ class GameRoom {
     this.blackTokensGiven = [];
     this.drawingLocks = new Map(); // Блокування малюнків
     this.usedWordSetIndices = []; // Зберігаємо індекси використаних наборів для уникнення повторів
+    this.isStartingRound = false; // НОВЕ: Захист від race condition
+    this.drawingRateLimit = new Map(); // НОВЕ: Rate limiting для малювання
   }
 
   addPlayer(id, name, socketId) {
@@ -107,131 +109,161 @@ class GameRoom {
   }
 
   startNewRound() {
-    this.currentRound++;
-    this.finishedDrawing.clear();
-    this.finishedGuessing.clear();
-    this.drawings.clear();
-    this.guesses.clear();
-    this.blackTokensGiven = [];
-    this.drawingLocks.clear();
+    // НОВЕ: Захист від race condition
+    if (this.isStartingRound) return null;
+    this.isStartingRound = true;
     
-    // Отримуємо всі картки для поточного раунду
-    const roundWordStrings = WORD_SETS[this.currentRound];
-    
-    // Якщо для раунду немає карток, використовуємо з 1-го раунду
-    if (!roundWordStrings || roundWordStrings.length === 0) {
-      console.error(`No word sets for round ${this.currentRound}, using round 1`);
-      roundWordStrings = WORD_SETS[1];
-    }
-    
-    // Фільтруємо невикористані картки для цього раунду
-    let availableIndices = [];
-    for (let i = 0; i < roundWordStrings.length; i++) {
-      const setId = `${this.currentRound}-${i}`;
-      if (!this.usedWordSetIndices.includes(setId)) {
-        availableIndices.push(i);
+    try {
+      this.currentRound++;
+      this.finishedDrawing.clear();
+      this.finishedGuessing.clear();
+      this.drawings.clear();
+      this.guesses.clear();
+      this.blackTokensGiven = [];
+      this.drawingLocks.clear();
+      this.drawingRateLimit.clear(); // НОВЕ: Очищаємо rate limits
+      
+      // Отримуємо всі картки для поточного раунду
+      const roundWordStrings = WORD_SETS[this.currentRound];
+      
+      // Якщо для раунду немає карток, використовуємо з 1-го раунду
+      if (!roundWordStrings || roundWordStrings.length === 0) {
+        console.error(`No word sets for round ${this.currentRound}, using round 1`);
+        roundWordStrings = WORD_SETS[1];
       }
-    }
-    
-    // Якщо недостатньо невикористаних карток, скидаємо для цього раунду
-    if (availableIndices.length < 3) {
-      console.log(`Not enough unused sets for round ${this.currentRound}, resetting...`);
-      this.usedWordSetIndices = this.usedWordSetIndices.filter(id => !id.startsWith(`${this.currentRound}-`));
-      availableIndices = [];
+      
+      // Фільтруємо невикористані картки для цього раунду
+      let availableIndices = [];
       for (let i = 0; i < roundWordStrings.length; i++) {
-        availableIndices.push(i);
+        const setId = `${this.currentRound}-${i}`;
+        if (!this.usedWordSetIndices.includes(setId)) {
+          availableIndices.push(i);
+        }
       }
-    }
-    
-    // Вибираємо 3 випадкові картки з доступних
-    const selectedIndices = [];
-    for (let i = 0; i < 3; i++) {
-      const randomIndex = Math.floor(Math.random() * availableIndices.length);
-      const selectedIndex = availableIndices[randomIndex];
-      selectedIndices.push(selectedIndex);
-      availableIndices.splice(randomIndex, 1); // Видаляємо вибраний індекс
       
-      // Запам'ятовуємо використану картку
-      const setId = `${this.currentRound}-${selectedIndex}`;
-      this.usedWordSetIndices.push(setId);
-    }
-    
-    // Парсимо вибрані картки (розділяємо по комах та обрізаємо пробіли)
-    const wordSet = {
-      A: roundWordStrings[selectedIndices[0]].split(',').map(word => word.trim()),
-      B: roundWordStrings[selectedIndices[1]].split(',').map(word => word.trim()),
-      C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim())
-    };
-    
-    console.log(`Round ${this.currentRound}: using cards ${selectedIndices.join(', ')} from round pool`);
-    
-    // Перевіряємо що кожна картка має рівно 9 слів
-    if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9) {
-      console.error('Word set validation error: each card must have exactly 9 words');
-      console.log('Card A:', wordSet.A.length, 'words');
-      console.log('Card B:', wordSet.B.length, 'words');
-      console.log('Card C:', wordSet.C.length, 'words');
-    }
-    
-    // Призначаємо кожному гравцю букву та номер
-    const assignments = new Map();
-    const usedNumbers = new Set();
-    const letters = ['A', 'B', 'C'];
-    
-    for (let [playerId] of this.players) {
-      let number;
-      do {
-        number = Math.floor(Math.random() * 9) + 1;
-      } while (usedNumbers.has(number));
-      usedNumbers.add(number);
+      // Якщо недостатньо невикористаних карток, скидаємо для цього раунду
+      if (availableIndices.length < 3) {
+        console.log(`Not enough unused sets for round ${this.currentRound}, resetting...`);
+        this.usedWordSetIndices = this.usedWordSetIndices.filter(id => !id.startsWith(`${this.currentRound}-`));
+        availableIndices = [];
+        for (let i = 0; i < roundWordStrings.length; i++) {
+          availableIndices.push(i);
+        }
+      }
       
-      const letter = letters[Math.floor(Math.random() * letters.length)];
-      const word = wordSet[letter][number - 1];
+      // Вибираємо 3 випадкові картки з доступних
+      const selectedIndices = [];
+      for (let i = 0; i < 3; i++) {
+        const randomIndex = Math.floor(Math.random() * availableIndices.length);
+        const selectedIndex = availableIndices[randomIndex];
+        selectedIndices.push(selectedIndex);
+        availableIndices.splice(randomIndex, 1); // Видаляємо вибраний індекс
+        
+        // Запам'ятовуємо використану картку
+        const setId = `${this.currentRound}-${selectedIndex}`;
+        this.usedWordSetIndices.push(setId);
+      }
       
-      assignments.set(playerId, {
-        letter,
-        number,
-        word
-      });
+      // Парсимо вибрані картки (розділяємо по комах та обрізаємо пробіли)
+      const wordSet = {
+        A: roundWordStrings[selectedIndices[0]].split(',').map(word => word.trim()),
+        B: roundWordStrings[selectedIndices[1]].split(',').map(word => word.trim()),
+        C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim())
+      };
+      
+      console.log(`Round ${this.currentRound}: using cards ${selectedIndices.join(', ')} from round pool`);
+      
+      // Перевіряємо що кожна картка має рівно 9 слів
+      if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9) {
+        console.error('Word set validation error: each card must have exactly 9 words');
+        console.log('Card A:', wordSet.A.length, 'words');
+        console.log('Card B:', wordSet.B.length, 'words');
+        console.log('Card C:', wordSet.C.length, 'words');
+      }
+      
+      // Призначаємо кожному гравцю букву та номер
+      const assignments = new Map();
+      const usedNumbers = new Set();
+      const letters = ['A', 'B', 'C'];
+      
+      for (let [playerId] of this.players) {
+        let number;
+        do {
+          number = Math.floor(Math.random() * 9) + 1;
+        } while (usedNumbers.has(number));
+        usedNumbers.add(number);
+        
+        const letter = letters[Math.floor(Math.random() * letters.length)];
+        const word = wordSet[letter][number - 1];
+        
+        assignments.set(playerId, {
+          letter,
+          number,
+          word
+        });
+      }
+      
+      this.roundData = {
+        wordSet,
+        assignments,
+        playerScoreSequences: new Map(), // Персональні черги очок для кожного художника
+        blackTokenSequence: [] // Чорні жетони
+      };
+      
+      // Ініціалізуємо черги очок
+      // Для очок за відгадування: кількість = players.size - 1 (не відгадуєш себе)
+      const guessSequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
+      for (let [playerId] of this.players) {
+        this.roundData.playerScoreSequences.set(
+          playerId, 
+          [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
+        );
+      }
+      
+      // ВИПРАВЛЕННЯ: Для чорних жетонів: кількість = players.size (всі можуть завершити)
+      const blackTokenSequenceLength = Math.min(this.players.size, SCORE_SEQUENCE.length);
+      this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, blackTokenSequenceLength)];
+      
+      console.log(`Round ${this.currentRound} initialized:`);
+      console.log(`- Players: ${this.players.size}`);
+      console.log(`- Guess sequence length: ${guessSequenceLength}`);
+      console.log(`- Black token sequence: [${this.roundData.blackTokenSequence.join(', ')}]`);
+      
+      this.state = 'playing';
+      
+      return {
+        round: this.currentRound,
+        wordSet,
+        assignments
+      };
+    } finally {
+      // НОВЕ: Завжди знімаємо блокування
+      this.isStartingRound = false;
     }
-    
-    this.roundData = {
-      wordSet,
-      assignments,
-      playerScoreSequences: new Map(), // Персональні черги очок для кожного художника
-      blackTokenSequence: [] // Чорні жетони
-    };
-    
-    // Ініціалізуємо черги очок
-    // Для очок за відгадування: кількість = players.size - 1 (не відгадуєш себе)
-    const guessSequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
-    for (let [playerId] of this.players) {
-      this.roundData.playerScoreSequences.set(
-        playerId, 
-        [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
-      );
-    }
-    
-    // ВИПРАВЛЕННЯ: Для чорних жетонів: кількість = players.size (всі можуть завершити)
-    const blackTokenSequenceLength = Math.min(this.players.size, SCORE_SEQUENCE.length);
-    this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, blackTokenSequenceLength)];
-    
-    console.log(`Round ${this.currentRound} initialized:`);
-    console.log(`- Players: ${this.players.size}`);
-    console.log(`- Guess sequence length: ${guessSequenceLength}`);
-    console.log(`- Black token sequence: [${this.roundData.blackTokenSequence.join(', ')}]`);
-    
-    this.state = 'playing';
-    
-    return {
-      round: this.currentRound,
-      wordSet,
-      assignments
-    };
   }
 
   addDrawingData(playerId, data) {
     if (this.drawingLocks.has(playerId)) return false;
+    
+    // НОВЕ: Rate limiting
+    const now = Date.now();
+    let playerRate = this.drawingRateLimit.get(playerId);
+    
+    if (!playerRate) {
+      playerRate = { count: 0, resetTime: now + 1000 };
+      this.drawingRateLimit.set(playerId, playerRate);
+    }
+    
+    if (now > playerRate.resetTime) {
+      playerRate.count = 0;
+      playerRate.resetTime = now + 1000;
+    }
+    
+    playerRate.count++;
+    if (playerRate.count > 60) { // максимум 60 повідомлень за секунду
+      console.log(`Rate limit exceeded for player ${playerId}`);
+      return false;
+    }
     
     if (!this.drawings.has(playerId)) {
       this.drawings.set(playerId, []);
@@ -472,6 +504,12 @@ io.on('connection', (socket) => {
     if (room.canStartGame()) {
       const roundData = room.startNewRound();
       
+      // НОВЕ: Перевіряємо чи вдалося почати раунд
+      if (!roundData) {
+        console.log('Round already starting, ignoring duplicate request');
+        return;
+      }
+      
       // Відправляємо кожному гравцю його персональне завдання
       for (let [playerId, player] of room.players) {
         const assignment = roundData.assignments.get(playerId);
@@ -490,10 +528,23 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
     
-    if (room.addDrawingData(currentPlayerId, strokes)) {
+    // НОВЕ: Валідація stroke даних
+    const validatedStrokes = strokes.filter(stroke => {
+      if (stroke.type === 'start' || stroke.type === 'draw') {
+        return stroke.x >= 0 && stroke.x <= 1 && 
+               stroke.y >= 0 && stroke.y <= 1 &&
+               stroke.size > 0 && stroke.size <= 50 &&
+               (stroke.tool === 'pen' || stroke.tool === 'eraser');
+      }
+      return stroke.type === 'end';
+    });
+    
+    if (validatedStrokes.length === 0) return;
+    
+    if (room.addDrawingData(currentPlayerId, validatedStrokes)) {
       socket.to(currentRoomCode).emit('drawing_updated', {
         playerId: currentPlayerId,
-        strokes
+        strokes: validatedStrokes
       });
     }
   });
@@ -575,6 +626,12 @@ io.on('connection', (socket) => {
     
     const roundData = room.startNewRound();
     
+    // НОВЕ: Перевіряємо чи вдалося почати раунд
+    if (!roundData) {
+      console.log('Round already starting, ignoring duplicate request');
+      return;
+    }
+    
     // Відправляємо кожному гравцю його персональне завдання
     for (let [playerId, player] of room.players) {
       const assignment = roundData.assignments.get(playerId);
@@ -612,6 +669,14 @@ io.on('connection', (socket) => {
       const room = rooms.get(currentRoomCode);
       if (room) {
         room.removePlayer(currentPlayerId);
+        playerRooms.delete(currentPlayerId); // НОВЕ: Очищаємо memory leak
+        
+        // НОВЕ: Видаляємо порожню кімнату
+        if (room.players.size === 0) {
+          rooms.delete(currentRoomCode);
+          console.log(`Room ${currentRoomCode} deleted - no players left`);
+        }
+        
         io.to(currentRoomCode).emit('player_disconnected', {
           playerId: currentPlayerId,
           state: room.getState()

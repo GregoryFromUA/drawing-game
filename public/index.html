@@ -264,7 +264,7 @@
             color: white;
         }
         
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
@@ -276,6 +276,12 @@
         
         .btn-secondary:hover {
             background: #e0e0e0;
+        }
+        
+        .btn-secondary:disabled {
+            background: #e0e0e0;
+            color: #999;
+            cursor: not-allowed !important;
         }
         
         .btn-success {
@@ -643,31 +649,6 @@
             color: white;
             border-color: #f44336;
             text-decoration: line-through;
-        }
-        
-        .finish-guessing-btn {
-            margin-top: 8px;
-            padding: 8px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            align-self: center;
-        }
-        
-        .finish-guessing-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-        }
-        
-        .finish-guessing-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
         }
         
         /* Права панель з картками */
@@ -1311,9 +1292,9 @@
                                     <div className="rules-section">
                                         <h3>ПРАВИЛА МАЛЮВАННЯ</h3>
                                         <ul>
-                                            <li>НЕ малюйте літери чи цифри.</li>
-                                            <li>НЕ використовуйте символи, літери чи цифри, що прямо вказують на номер вашого завдання чи слово.</li>
-                                            <li>Передавайте ідею, суть, концепцію вашого завдання через малюнок.</li>
+                                            <li>НЕ малюйте літери чи цифри. Наприклад, якщо у вас слово "книга", ви не можете намалювати літери К-Н-И-Г-А</li>
+                                            <li>НЕ використовуйте символи чи цифри, які прямо вказують на ваше завдання.</li>
+                                            <li>Вам потрібно передавати ідею, суть, концепцію слова через візуальні образи.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1757,6 +1738,10 @@
             const myAssignment = roundData?.personalAssignment;
             const otherPlayers = roundData?.players?.filter(p => p.id !== playerId) || [];
             
+            // Перевірка чи всі гравці відгадані
+            const allPlayersGuessed = otherPlayers.length > 0 && 
+                Object.keys(myGuesses).length === otherPlayers.length;
+            
             // Групуємо слова по картках
             const wordsByCard = {
                 A: roundData?.wordSet?.A || [],
@@ -1858,6 +1843,68 @@
                                                     Завершити малювання
                                                 </button>
                                             )}
+                                            
+                                            {/* Кнопка завершення відгадування */}
+                                            {otherPlayers.length > 0 && (
+                                                <div style={{ 
+                                                    borderTop: '2px solid #e0e0e0', 
+                                                    marginTop: '10px', 
+                                                    paddingTop: '10px' 
+                                                }}>
+                                                    <label style={{ 
+                                                        fontSize: '0.8em', 
+                                                        color: '#667eea', 
+                                                        marginBottom: '5px', 
+                                                        display: 'block',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        Відгадування:
+                                                    </label>
+                                                    
+                                                    {!hasFinishedGuessing ? (
+                                                        <button 
+                                                            className={`action-btn ${allPlayersGuessed ? 'btn-primary' : 'btn-secondary'}`}
+                                                            onClick={handleFinishGuessing}
+                                                            disabled={!allPlayersGuessed}
+                                                            style={{
+                                                                width: '100%',
+                                                                opacity: allPlayersGuessed ? 1 : 0.6,
+                                                                cursor: allPlayersGuessed ? 'pointer' : 'not-allowed',
+                                                                position: 'relative',
+                                                                padding: '10px 6px',
+                                                                transition: 'all 0.3s'
+                                                            }}
+                                                            title={!allPlayersGuessed ? 
+                                                                `Відгадайте всіх гравців (${Object.keys(myGuesses).length}/${otherPlayers.length})` : 
+                                                                'Натисніть щоб завершити відгадування'
+                                                            }
+                                                        >
+                                                            <div style={{ fontSize: '0.85em', fontWeight: '600' }}>
+                                                                Завершив відгадування
+                                                            </div>
+                                                            <div style={{ 
+                                                                fontSize: '0.7em', 
+                                                                marginTop: '2px',
+                                                                opacity: 0.8
+                                                            }}>
+                                                                {Object.keys(myGuesses).length}/{otherPlayers.length} гравців
+                                                            </div>
+                                                        </button>
+                                                    ) : (
+                                                        <div style={{
+                                                            padding: '8px',
+                                                            background: '#4caf50',
+                                                            color: 'white',
+                                                            borderRadius: '5px',
+                                                            textAlign: 'center',
+                                                            fontSize: '0.8em',
+                                                            fontWeight: '600'
+                                                        }}>
+                                                            ✓ Відгадування завершено
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1904,7 +1951,6 @@
                             
                             {/* Нижня секція з канвасами інших */}
                             <div className="others-section">
-                                <h3 className="others-header">Відгадайте малюнки інших гравців:</h3>
                                 <div className="others-content">
                                     <div className="others-grid">
                                         {otherPlayers.map(player => (
@@ -1920,15 +1966,6 @@
                                             />
                                         ))}
                                     </div>
-                                    
-                                    {!hasFinishedGuessing && otherPlayers.length > 0 && (
-                                        <button 
-                                            className="finish-guessing-btn"
-                                            onClick={handleFinishGuessing}
-                                        >
-                                            Завершив відгадування
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         </div>
