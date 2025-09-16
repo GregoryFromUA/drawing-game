@@ -57,6 +57,39 @@ class GameRoom {
     this.drawingRateLimit = new Map(); // НОВЕ: Rate limiting для малювання
   }
 
+  // НОВЕ: Метод очищення пам'яті
+  cleanup() {
+    // Очищаємо всі Map та Set структури
+    this.players.clear();
+    this.drawings.clear();
+    this.guesses.clear();
+    this.scores.clear();
+    this.readyPlayers.clear();
+    this.finishedDrawing.clear();
+    this.finishedGuessing.clear();
+    this.drawingLocks.clear();
+    this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
+    
+    // Очищаємо масиви
+    this.blackTokensGiven = [];
+    
+    // Обмежуємо usedWordSetIndices максимум 100 записами (достатньо для 25 ігор)
+    if (this.usedWordSetIndices.length > 100) {
+      // Залишаємо тільки останні 50 записів
+      this.usedWordSetIndices = this.usedWordSetIndices.slice(-50);
+      console.log(`Trimmed usedWordSetIndices to 50 entries`);
+    }
+    
+    // Очищаємо roundData
+    if (this.roundData) {
+      this.roundData.assignments?.clear();
+      this.roundData.playerScoreSequences?.clear();
+      this.roundData = null;
+    }
+    
+    console.log(`Room ${this.code} cleaned up`);
+  }
+
   addPlayer(id, name, socketId) {
     if (this.players.size >= MAX_PLAYERS) return false;
     
@@ -88,6 +121,22 @@ class GameRoom {
     const player = this.players.get(id);
     if (player) {
       player.connected = false;
+      
+      // ВИПРАВЛЕНО: Очищаємо дані відключеного гравця
+      this.drawingRateLimit.delete(id);
+      this.readyPlayers.delete(id);
+      this.finishedDrawing.delete(id);
+      this.finishedGuessing.delete(id);
+      this.drawingLocks.delete(id);
+      
+      // Видаляємо малюнки відключеного гравця для економії пам'яті
+      if (this.state === 'playing' && this.drawings.has(id)) {
+        const drawingSize = this.drawings.get(id)?.length || 0;
+        if (drawingSize > 1000) { // Якщо багато даних
+          this.drawings.delete(id);
+          console.log(`Cleared ${drawingSize} drawing strokes for disconnected player ${id}`);
+        }
+      }
     }
   }
 
@@ -115,13 +164,40 @@ class GameRoom {
     
     try {
       this.currentRound++;
+      
+      // ВИПРАВЛЕНО: Повне очищення попередніх даних раунду
       this.finishedDrawing.clear();
       this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
       this.blackTokensGiven = [];
       this.drawingLocks.clear();
-      this.drawingRateLimit.clear(); // НОВЕ: Очищаємо rate limits
+      this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
+      
+      // ВИПРАВЛЕНО: Видаляємо відключених гравців перед новим раундом
+      const disconnectedPlayers = [];
+      for (let [playerId, player] of this.players) {
+        if (!player.connected) {
+          disconnectedPlayers.push(playerId);
+        }
+      }
+      
+      disconnectedPlayers.forEach(playerId => {
+        this.players.delete(playerId);
+        this.scores.delete(playerId);
+        console.log(`Removed disconnected player ${playerId} before round ${this.currentRound}`);
+      });
+      
+      // ВИПРАВЛЕНО: Обмежуємо розмір usedWordSetIndices
+      if (this.usedWordSetIndices.length > 60) {
+        // Залишаємо тільки записи для поточних 4 раундів
+        const currentRoundSets = this.usedWordSetIndices.filter(id => {
+          const [round] = id.split('-');
+          return parseInt(round) >= Math.max(1, this.currentRound - 3);
+        });
+        this.usedWordSetIndices = currentRoundSets;
+        console.log(`Trimmed usedWordSetIndices to ${currentRoundSets.length} recent entries`);
+      }
       
       // Отримуємо всі картки для поточного раунду
       const roundWordStrings = WORD_SETS[this.currentRound];
@@ -669,22 +745,103 @@ io.on('connection', (socket) => {
       const room = rooms.get(currentRoomCode);
       if (room) {
         room.removePlayer(currentPlayerId);
-        playerRooms.delete(currentPlayerId); // НОВЕ: Очищаємо memory leak
         
-        // НОВЕ: Видаляємо порожню кімнату
-        if (room.players.size === 0) {
-          rooms.delete(currentRoomCode);
-          console.log(`Room ${currentRoomCode} deleted - no players left`);
+        // ВИПРАВЛЕНО: Видаляємо з глобальної Map
+        playerRooms.delete(currentPlayerId);
+        
+        // Перевіряємо чи всі гравці відключені
+        let allDisconnected = true;
+        for (let [, player] of room.players) {
+          if (player.connected) {
+            allDisconnected = false;
+            break;
+          }
         }
         
-        io.to(currentRoomCode).emit('player_disconnected', {
-          playerId: currentPlayerId,
-          state: room.getState()
-        });
+        // ВИПРАВЛЕНО: Видаляємо порожню кімнату або кімнату з усіма відключеними гравцями
+        if (room.players.size === 0 || allDisconnected) {
+          // Очищаємо всі дані кімнати
+          room.cleanup();
+          
+          // Видаляємо кімнату з глобальної Map
+          rooms.delete(currentRoomCode);
+          
+          // Очищаємо всі посилання на кімнату з playerRooms
+          for (let [pid, rcode] of playerRooms) {
+            if (rcode === currentRoomCode) {
+              playerRooms.delete(pid);
+            }
+          }
+          
+          console.log(`Room ${currentRoomCode} deleted - ${allDisconnected ? 'all players disconnected' : 'no players left'}`);
+        } else {
+          io.to(currentRoomCode).emit('player_disconnected', {
+            playerId: currentPlayerId,
+            state: room.getState()
+          });
+        }
+      } else {
+        // Кімната вже не існує, очищаємо посилання
+        playerRooms.delete(currentPlayerId);
       }
     }
+    
+    console.log(`Player ${socket.id} disconnected. Active rooms: ${rooms.size}, Active players: ${playerRooms.size}`);
   });
 });
+
+// НОВЕ: Періодичне очищення пам'яті кожні 5 хвилин
+setInterval(() => {
+  let roomsCleaned = 0;
+  let playersRemoved = 0;
+  
+  // Перевіряємо всі кімнати
+  for (let [roomCode, room] of rooms) {
+    // Видаляємо кімнати без активних гравців
+    let hasActivePlayers = false;
+    for (let [, player] of room.players) {
+      if (player.connected) {
+        hasActivePlayers = true;
+        break;
+      }
+    }
+    
+    if (!hasActivePlayers) {
+      room.cleanup();
+      rooms.delete(roomCode);
+      roomsCleaned++;
+      
+      // Очищаємо посилання з playerRooms
+      for (let [pid, rcode] of playerRooms) {
+        if (rcode === roomCode) {
+          playerRooms.delete(pid);
+          playersRemoved++;
+        }
+      }
+    }
+  }
+  
+  // Перевіряємо playerRooms на "осиротілі" записи
+  for (let [playerId, roomCode] of playerRooms) {
+    if (!rooms.has(roomCode)) {
+      playerRooms.delete(playerId);
+      playersRemoved++;
+    }
+  }
+  
+  if (roomsCleaned > 0 || playersRemoved > 0) {
+    console.log(`[GC] Cleaned ${roomsCleaned} rooms, ${playersRemoved} player references`);
+  }
+  
+  // Логуємо статистику
+  console.log(`[GC] Active: ${rooms.size} rooms, ${playerRooms.size} player mappings`);
+  
+  // Форсуємо garbage collection Node.js (якщо запущено з --expose-gc)
+  if (global.gc) {
+    global.gc();
+    console.log('[GC] Manual garbage collection triggered');
+  }
+}, 5 * 60 * 1000); // 5 хвилин
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
@@ -700,7 +857,9 @@ server.listen(PORT, '0.0.0.0', () => {
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start:gc": "node --expose-gc server.js",
+    "dev": "nodemon server.js",
+    "dev:gc": "nodemon --expose-gc server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
