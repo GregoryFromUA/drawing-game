@@ -48,7 +48,6 @@ class GameRoom {
     this.guesses = new Map();
     this.scores = new Map();
     this.readyPlayers = new Set();
-    this.finishedDrawing = new Set();
     this.finishedGuessing = new Set();
     this.blackTokensGiven = [];
     this.drawingLocks = new Map(); // Блокування малюнків
@@ -65,7 +64,6 @@ class GameRoom {
     this.guesses.clear();
     this.scores.clear();
     this.readyPlayers.clear();
-    this.finishedDrawing.clear();
     this.finishedGuessing.clear();
     this.drawingLocks.clear();
     this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
@@ -125,7 +123,6 @@ class GameRoom {
       // ВИПРАВЛЕНО: Очищаємо дані відключеного гравця
       this.drawingRateLimit.delete(id);
       this.readyPlayers.delete(id);
-      this.finishedDrawing.delete(id);
       this.finishedGuessing.delete(id);
       this.drawingLocks.delete(id);
       
@@ -164,9 +161,8 @@ class GameRoom {
     
     try {
       this.currentRound++;
-      
+
       // ВИПРАВЛЕНО: Повне очищення попередніх даних раунду
-      this.finishedDrawing.clear();
       this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
@@ -348,11 +344,6 @@ class GameRoom {
     }
     this.drawings.get(playerId).push(data);
     return true;
-  }
-
-  finishDrawing(playerId) {
-    this.finishedDrawing.add(playerId);
-    this.lockDrawing(playerId, 'manual_finish');
   }
 
   lockDrawing(playerId, reason) {
@@ -631,24 +622,13 @@ io.on('connection', (socket) => {
   socket.on('clear_canvas', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || room.drawingLocks.has(currentPlayerId)) return;
-    
+
     room.drawings.set(currentPlayerId, []);
     io.to(currentRoomCode).emit('canvas_cleared', {
       playerId: currentPlayerId
     });
   });
-  
-  // Завершення малювання
-  socket.on('finish_drawing', () => {
-    const room = rooms.get(currentRoomCode);
-    if (!room) return;
-    
-    room.finishDrawing(currentPlayerId);
-    io.to(currentRoomCode).emit('player_finished_drawing', {
-      playerId: currentPlayerId
-    });
-  });
-  
+
   // Здогадка
   socket.on('make_guess', ({ targetId, number }) => {
     const room = rooms.get(currentRoomCode);

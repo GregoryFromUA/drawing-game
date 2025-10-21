@@ -1065,7 +1065,6 @@
             const [finalResults, setFinalResults] = useState(null);
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
-            const [finishedDrawingPlayers, setFinishedDrawingPlayers] = useState(new Set());
             const [codeCopied, setCodeCopied] = useState(false);
             const [canEndRound, setCanEndRound] = useState(false);
             
@@ -1110,7 +1109,6 @@
                     setMyGuesses({});
                     setUsedNumbers(new Set());
                     setIsDrawingLocked(false);
-                    setFinishedDrawingPlayers(new Set());
                     setCanEndRound(false); // Скидаємо можливість завершити раунд
                 });
                 
@@ -1133,11 +1131,7 @@
                         setIsDrawingLocked(true);
                     }
                 });
-                
-                newSocket.on('player_finished_drawing', ({ playerId: finishedPlayerId }) => {
-                    setFinishedDrawingPlayers(prev => new Set([...prev, finishedPlayerId]));
-                });
-                
+
                 newSocket.on('guess_accepted', ({ targetId, number }) => {
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
@@ -1213,13 +1207,6 @@
             const startGame = () => {
                 if (socket && isHost) {
                     socket.emit('start_game');
-                }
-            };
-            
-            const finishDrawing = () => {
-                if (socket) {
-                    socket.emit('finish_drawing');
-                    setIsDrawingLocked(true);
                 }
             };
 
@@ -1412,9 +1399,7 @@
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
                         isDrawingLocked={isDrawingLocked}
-                        finishDrawing={finishDrawing}
                         makeGuess={makeGuess}
-                        finishedDrawingPlayers={finishedDrawingPlayers}
                         isHost={isHost}
                         endRound={endRound}
                         canEndRound={canEndRound}
@@ -1590,9 +1575,7 @@
             myGuesses,
             usedNumbers,
             isDrawingLocked,
-            finishDrawing,
             makeGuess,
-            finishedDrawingPlayers,
             isHost,
             endRound,
             canEndRound
@@ -1602,7 +1585,6 @@
             const [currentColor, setCurrentColor] = useState('#000000');
             const [currentSize, setCurrentSize] = useState(5);
             const [currentTool, setCurrentTool] = useState('pen');
-            const [hasFinishedDrawing, setHasFinishedDrawing] = useState(false);
             const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
 
@@ -1673,8 +1655,8 @@
 }, []);
             
             const startDrawing = (e) => {
-    if (isDrawingLocked || hasFinishedDrawing) return;
-    
+    if (isDrawingLocked) return;
+
     setIsDrawing(true);
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -1716,7 +1698,7 @@
             };
             
             const draw = useCallback((e) => {
-    if (!isDrawing || isDrawingLocked || hasFinishedDrawing || lastXRef.current === null) return;
+    if (!isDrawing || isDrawingLocked || lastXRef.current === null) return;
     
     e.preventDefault();
     
@@ -1762,7 +1744,7 @@
                 
                strokeBufferRef.current.push(strokeData);
     setMyDrawingData(prev => [...prev, strokeData]);
-}, [isDrawing, isDrawingLocked, hasFinishedDrawing, currentColor, currentSize, currentTool]);
+}, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
             
             const stopDrawing = () => {
                 if (isDrawing) {
@@ -1778,7 +1760,7 @@
             };
             
             const clearCanvas = () => {
-    if (isDrawingLocked || hasFinishedDrawing) return;
+    if (isDrawingLocked) return;
     
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -1797,11 +1779,6 @@
         socket.emit('clear_canvas');
     }
 };
-            
-            const handleFinishDrawing = () => {
-                setHasFinishedDrawing(true);
-                finishDrawing();
-            };
 
             // Обробники для нової системи відгадування
             const createGuess = (wordData, targetPlayerId) => {
@@ -2006,17 +1983,17 @@
                                         <div className="tool-group">
                                             <label>Тип:</label>
                                             <div className="tool-buttons">
-                                                <button 
+                                                <button
                                                     className={`tool-btn ${currentTool === 'pen' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('pen')}
-                                                    disabled={isDrawingLocked || hasFinishedDrawing}
+                                                    disabled={isDrawingLocked}
                                                 >
                                                     ✏️
                                                 </button>
-                                                <button 
+                                                <button
                                                     className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('eraser')}
-                                                    disabled={isDrawingLocked || hasFinishedDrawing}
+                                                    disabled={isDrawingLocked}
                                                 >
                                                     🧹
                                                 </button>
@@ -2032,7 +2009,7 @@
                                                         className={`color-btn ${currentColor === color ? 'active' : ''}`}
                                                         style={{ backgroundColor: color }}
                                                         onClick={() => setCurrentColor(color)}
-                                                        disabled={isDrawingLocked || hasFinishedDrawing || currentTool === 'eraser'}
+                                                        disabled={isDrawingLocked || currentTool === 'eraser'}
                                                     />
                                                 ))}
                                             </div>
@@ -2046,10 +2023,10 @@
                                                         key={size}
                                                         className={`size-btn ${currentSize === size ? 'active' : ''}`}
                                                         onClick={() => setCurrentSize(size)}
-                                                        disabled={isDrawingLocked || hasFinishedDrawing}
+                                                        disabled={isDrawingLocked}
                                                     >
-                                                        <div 
-                                                            className="size-dot" 
+                                                        <div
+                                                            className="size-dot"
                                                             style={{ width: size * 0.5, height: size * 0.5 }}
                                                         />
                                                     </button>
@@ -2058,23 +2035,13 @@
                                         </div>
                                         
                                         <div className="action-buttons">
-                                            <button 
+                                            <button
                                                 className="action-btn btn-danger"
                                                 onClick={clearCanvas}
-                                                disabled={isDrawingLocked || hasFinishedDrawing}
+                                                disabled={isDrawingLocked}
                                             >
                                                 Очистити
                                             </button>
-                                            
-                                            {!hasFinishedDrawing && (
-                                                <button
-                                                    className="action-btn btn-success"
-                                                    onClick={handleFinishDrawing}
-                                                    disabled={isDrawingLocked}
-                                                >
-                                                    Намалював, відгадуйте!
-                                                </button>
-                                            )}
 
                                             {/* Кнопка завершення раунду (тільки для хоста) */}
                                             {isHost && otherPlayers.length > 0 && (
@@ -2177,7 +2144,6 @@
                                                 player={player}
                                                 drawing={drawings[player.id] || []}
                                                 guess={myGuesses[player.id]}
-                                                isFinished={finishedDrawingPlayers.has(player.id)}
                                                 // Нова система відгадування
                                                 wordAssignment={wordAssignments[player.id]}
                                                 isSelected={selectedPlayer === player.id}
@@ -2245,7 +2211,6 @@
             player,
             drawing,
             guess,
-            isFinished,
             // Нова система відгадування
             wordAssignment,
             isSelected,
@@ -2345,17 +2310,11 @@
                     onDragLeave={onDragLeave}
                     onDrop={onDrop}
                     style={{
-                        cursor: hasAssignment ? 'not-allowed' : 'pointer',
-                        ...(isFinished ? {
-                            border: '3px solid #FFD700',
-                            boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-                            backgroundColor: '#FFFACD'
-                        } : {})
+                        cursor: hasAssignment ? 'not-allowed' : 'pointer'
                     }}
                 >
                     <div className="drawing-player-name">
                         {player.name}
-                        {isFinished && <span style={{ color: '#FFA500', marginLeft: '8px' }}>✅</span>}
                         {hasAssignment && (
                             <div style={{
                                 fontSize: '0.75em',
