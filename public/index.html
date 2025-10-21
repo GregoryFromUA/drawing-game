@@ -594,8 +594,30 @@
             border-radius: 10px;
             padding: 8px;
             position: relative;
+            transition: all 0.3s;
+            cursor: pointer;
         }
-        
+
+        .drawing-card.matched {
+            border: 3px solid #4caf50;
+            background: #f1f8e9;
+            cursor: not-allowed;
+            box-shadow: 0 0 12px rgba(76, 175, 80, 0.5);
+        }
+
+        .drawing-card.selected {
+            border: 3px solid #667eea;
+            background: #e8eaf6;
+            box-shadow: 0 0 12px rgba(102, 126, 234, 0.6);
+        }
+
+        .drawing-card.drag-over {
+            border: 3px dashed #667eea;
+            background: #e3f2fd;
+            box-shadow: 0 0 16px rgba(102, 126, 234, 0.8);
+            transform: scale(1.02);
+        }
+
         .drawing-card.guessed {
             border-color: #4caf50;
             background: #f1f8e9;
@@ -695,7 +717,31 @@
             font-weight: bold;
             animation: pulse 2s infinite;
         }
-        
+
+        /* Нові стилі для системи відгадування */
+        .word-item.used {
+            background: #d0d0d0;
+            color: #888;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+        }
+
+        .word-item.selected {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+            border: 2px solid #4c6ef5;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        .word-item:not(.my-word):not(.used) {
+            cursor: grab;
+        }
+
+        .word-item:not(.my-word):not(.used):active {
+            cursor: grabbing;
+        }
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.02); }
@@ -1559,6 +1605,14 @@
             const [hasFinishedDrawing, setHasFinishedDrawing] = useState(false);
             const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
+
+            // Нове: Drag-and-Drop та Select стан
+            const [selectedWord, setSelectedWord] = useState(null); // {letter, number, word}
+            const [selectedPlayer, setSelectedPlayer] = useState(null); // playerId
+            const [draggedWord, setDraggedWord] = useState(null); // {letter, number, word}
+            const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
+            const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
+
             const strokeBufferRef = useRef([]);
             const lastXRef = useRef(null);
             const lastYRef = useRef(null);
@@ -1749,6 +1803,173 @@
                 finishDrawing();
             };
 
+            // Обробники для нової системи відгадування
+            const createGuess = (wordData, targetPlayerId) => {
+                if (!wordData || !targetPlayerId) return;
+                if (wordAssignments[targetPlayerId]) return; // Вже закріплено
+                if (myGuesses[targetPlayerId]) return; // Вже відгадано
+
+                // Закріплюємо вибір
+                setWordAssignments(prev => ({
+                    ...prev,
+                    [targetPlayerId]: wordData
+                }));
+
+                // Відправляємо на сервер
+                makeGuess(targetPlayerId, wordData.number);
+
+                // Скидаємо селекти
+                setSelectedWord(null);
+                setSelectedPlayer(null);
+            };
+
+            // Select режим - клік на слово
+            const handleWordClick = (letter, number, word) => {
+                // Перевірка чи це не своє слово
+                if (myAssignment?.letter === letter && myAssignment?.number === number) return;
+
+                // Перевірка чи слово вже використане
+                const isUsed = Object.values(wordAssignments).some(
+                    w => w.letter === letter && w.number === number
+                );
+                if (isUsed) return;
+
+                const wordData = { letter, number, word };
+
+                // Якщо вже вибраний гравець - створюємо пару
+                if (selectedPlayer) {
+                    createGuess(wordData, selectedPlayer);
+                } else {
+                    // Інакше просто вибираємо слово
+                    setSelectedWord(wordData);
+                }
+            };
+
+            // Select режим - клік на рисунок гравця
+            const handlePlayerClick = (targetPlayerId) => {
+                if (wordAssignments[targetPlayerId]) return; // Вже закріплено
+                if (myGuesses[targetPlayerId]) return; // Вже відгадано
+
+                // Якщо вже вибране слово - створюємо пару
+                if (selectedWord) {
+                    createGuess(selectedWord, targetPlayerId);
+                } else {
+                    // Інакше просто вибираємо гравця
+                    setSelectedPlayer(targetPlayerId);
+                }
+            };
+
+            // Клік на порожнє місце - скидає селект
+            const handleBackgroundClick = (e) => {
+                // Перевіряємо чи клік був не по слову чи рисунку
+                if (!e.target.closest('.word-item') && !e.target.closest('.drawing-card')) {
+                    setSelectedWord(null);
+                    setSelectedPlayer(null);
+                }
+            };
+
+            // Drag-and-Drop обробники
+            const handleWordDragStart = (e, letter, number, word) => {
+                // Перевірка чи це не своє слово
+                if (myAssignment?.letter === letter && myAssignment?.number === number) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // Перевірка чи слово вже використане
+                const isUsed = Object.values(wordAssignments).some(
+                    w => w.letter === letter && w.number === number
+                );
+                if (isUsed) {
+                    e.preventDefault();
+                    return;
+                }
+
+                setDraggedWord({ letter, number, word });
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handlePlayerDragOver = (e, targetPlayerId) => {
+                if (!draggedWord) return;
+                if (wordAssignments[targetPlayerId]) return;
+                if (myGuesses[targetPlayerId]) return;
+
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setHoveredPlayer(targetPlayerId);
+            };
+
+            const handlePlayerDragLeave = () => {
+                setHoveredPlayer(null);
+            };
+
+            const handlePlayerDrop = (e, targetPlayerId) => {
+                e.preventDefault();
+                if (!draggedWord) return;
+
+                createGuess(draggedWord, targetPlayerId);
+
+                setDraggedWord(null);
+                setHoveredPlayer(null);
+            };
+
+            const handleDragEnd = () => {
+                setDraggedWord(null);
+                setHoveredPlayer(null);
+            };
+
+            // Touch обробники для мобільних пристроїв
+            const handleWordTouchStart = (e, letter, number, word) => {
+                // Перевірка чи це не своє слово
+                if (myAssignment?.letter === letter && myAssignment?.number === number) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // Перевірка чи слово вже використане
+                const isUsed = Object.values(wordAssignments).some(
+                    w => w.letter === letter && w.number === number
+                );
+                if (isUsed) {
+                    e.preventDefault();
+                    return;
+                }
+
+                setDraggedWord({ letter, number, word });
+            };
+
+            const handleTouchMove = (e) => {
+                if (!draggedWord) return;
+
+                const touch = e.touches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                const drawingCard = element?.closest('.drawing-card');
+
+                if (drawingCard) {
+                    const playerId = drawingCard.getAttribute('data-player-id');
+                    if (playerId && !wordAssignments[playerId]) {
+                        setHoveredPlayer(playerId);
+                    } else {
+                        setHoveredPlayer(null);
+                    }
+                } else {
+                    setHoveredPlayer(null);
+                }
+            };
+
+            const handleTouchEnd = (e) => {
+                if (!draggedWord || !hoveredPlayer) {
+                    setDraggedWord(null);
+                    setHoveredPlayer(null);
+                    return;
+                }
+
+                createGuess(draggedWord, hoveredPlayer);
+
+                setDraggedWord(null);
+                setHoveredPlayer(null);
+            };
+
             const myAssignment = roundData?.personalAssignment;
             const otherPlayers = roundData?.players?.filter(p => p.id !== playerId) || [];
             
@@ -1762,7 +1983,7 @@
             
             return (
                 <>
-                    <div className="game-container">
+                    <div className="game-container" onClick={handleBackgroundClick}>
                         {/* Основна зона гри */}
                         <div className="game-main">
                             {/* Верхня частина */}
@@ -1956,10 +2177,15 @@
                                                 player={player}
                                                 drawing={drawings[player.id] || []}
                                                 guess={myGuesses[player.id]}
-                                                usedNumbers={usedNumbers}
-                                                makeGuess={makeGuess}
-                                                myNumber={myAssignment?.number}
                                                 isFinished={finishedDrawingPlayers.has(player.id)}
+                                                // Нова система відгадування
+                                                wordAssignment={wordAssignments[player.id]}
+                                                isSelected={selectedPlayer === player.id}
+                                                isHovered={hoveredPlayer === player.id}
+                                                onClick={() => handlePlayerClick(player.id)}
+                                                onDragOver={(e) => handlePlayerDragOver(e, player.id)}
+                                                onDragLeave={handlePlayerDragLeave}
+                                                onDrop={(e) => handlePlayerDrop(e, player.id)}
                                             />
                                         ))}
                                     </div>
@@ -1972,20 +2198,35 @@
                             {['A', 'B', 'C', 'D'].map(letter => (
                                 <div key={letter} className="word-card">
                                     <div className="word-grid">
-                                        {wordsByCard[letter].map((word, index) => (
-                                            <div
-                                                key={index}
-                                                className={`word-item ${
-                                                    myAssignment?.letter === letter && myAssignment?.number === index + 1
-                                                        ? 'my-word'
-                                                        : ''
-                                                }`}
-                                                title={word}
-                                            >
-                                                <span className="word-number">{index + 1}</span>
-                                                <span className="word-text">{word}</span>
-                                            </div>
-                                        ))}
+                                        {wordsByCard[letter].map((word, index) => {
+                                            const number = index + 1;
+                                            const isMyWord = myAssignment?.letter === letter && myAssignment?.number === number;
+                                            const isUsed = Object.values(wordAssignments).some(
+                                                w => w.letter === letter && w.number === number
+                                            );
+                                            const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
+
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''}`}
+                                                    title={word}
+                                                    draggable={!isMyWord && !isUsed}
+                                                    onClick={() => handleWordClick(letter, number, word)}
+                                                    onDragStart={(e) => handleWordDragStart(e, letter, number, word)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onTouchStart={(e) => handleWordTouchStart(e, letter, number, word)}
+                                                    onTouchMove={handleTouchMove}
+                                                    onTouchEnd={handleTouchEnd}
+                                                    style={{
+                                                        cursor: isMyWord || isUsed ? 'not-allowed' : 'pointer',
+                                                        touchAction: 'none'
+                                                    }}
+                                                >
+                                                    <span className="word-text">{word}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}
@@ -2000,7 +2241,20 @@
         }
         
         // Компонент для відображення малюнків інших гравців
-        function OtherPlayerDrawing({ player, drawing, guess, usedNumbers, makeGuess, myNumber, isFinished }) {
+        function OtherPlayerDrawing({
+            player,
+            drawing,
+            guess,
+            isFinished,
+            // Нова система відгадування
+            wordAssignment,
+            isSelected,
+            isHovered,
+            onClick,
+            onDragOver,
+            onDragLeave,
+            onDrop
+        }) {
             const canvasRef = useRef(null);
             const [canvasSize] = useState({ width: 240, height: 180 });
             
@@ -2080,47 +2334,49 @@
     });
 }, [drawing, canvasSize]);
             
+            const hasAssignment = wordAssignment !== undefined;
+
             return (
-                <div 
-                    className={`drawing-card ${guess ? 'guessed' : ''}`}
-                    style={isFinished ? {
-                        border: '3px solid #FFD700',
-                        boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-                        backgroundColor: '#FFFACD'
-                    } : {}}
+                <div
+                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''}`}
+                    data-player-id={player.id}
+                    onClick={onClick}
+                    onDragOver={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    style={{
+                        cursor: hasAssignment ? 'not-allowed' : 'pointer',
+                        ...(isFinished ? {
+                            border: '3px solid #FFD700',
+                            boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+                            backgroundColor: '#FFFACD'
+                        } : {})
+                    }}
                 >
                     <div className="drawing-player-name">
                         {player.name}
                         {isFinished && <span style={{ color: '#FFA500', marginLeft: '8px' }}>✅</span>}
+                        {hasAssignment && (
+                            <div style={{
+                                fontSize: '0.75em',
+                                color: '#4caf50',
+                                marginTop: '2px',
+                                fontWeight: '600'
+                            }}>
+                                {wordAssignment.word}
+                            </div>
+                        )}
                     </div>
-                    <canvas 
-                        ref={canvasRef} 
-                        style={{ 
+                    <canvas
+                        ref={canvasRef}
+                        style={{
                             width: '100%',
                             borderRadius: '8px',
                             background: 'white',
                             border: '1px solid #e0e0e0'
-                        }} 
+                        }}
                     />
                     
-                    <div className="guess-controls">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => {
-                            const isMyNumber = num === myNumber;
-                            const isUsed = usedNumbers.has(num) && guess !== num;
-                            const isSelected = guess === num;
-                            
-                            return (
-                                <button
-                                    key={num}
-                                    className={`guess-btn ${isSelected ? 'selected' : ''} ${isUsed ? 'used' : ''}`}
-                                    onClick={() => makeGuess(player.id, num)}
-                                    disabled={isMyNumber || isUsed || guess !== undefined}
-                                >
-                                    {num}
-                                </button>
-                            );
-                        })}
-                    </div>
                 </div>
             );
         }
