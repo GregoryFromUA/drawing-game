@@ -255,21 +255,30 @@ class GameRoom {
         console.log('Card D:', wordSet.D.length, 'words');
       }
 
-      // Призначаємо кожному гравцю букву та номер
+      // Призначаємо кожному гравцю унікальну комбінацію (буква + номер)
       const assignments = new Map();
-      const usedNumbers = new Set();
       const letters = ['A', 'B', 'C', 'D'];
-      
+
+      // ВИПРАВЛЕНО: Створюємо всі можливі комбінації (4 букви × 9 номерів = 36 слів)
+      const allCombinations = [];
+      for (let letter of letters) {
+        for (let number = 1; number <= 9; number++) {
+          allCombinations.push({ letter, number });
+        }
+      }
+
+      // Перемішуємо комбінації (shuffle)
+      for (let i = allCombinations.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allCombinations[i], allCombinations[j]] = [allCombinations[j], allCombinations[i]];
+      }
+
+      // Призначаємо унікальну комбінацію кожному гравцю
+      let combinationIndex = 0;
       for (let [playerId] of this.players) {
-        let number;
-        do {
-          number = Math.floor(Math.random() * 9) + 1;
-        } while (usedNumbers.has(number));
-        usedNumbers.add(number);
-        
-        const letter = letters[Math.floor(Math.random() * letters.length)];
+        const { letter, number } = allCombinations[combinationIndex++];
         const word = wordSet[letter][number - 1];
-        
+
         assignments.set(playerId, {
           letter,
           number,
