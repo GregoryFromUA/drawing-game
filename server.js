@@ -22,7 +22,7 @@ app.use(express.static('public'));
 // Константи гри
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
-const MAX_PLAYERS = 9;
+const MAX_PLAYERS = 12;
 const SCORE_SEQUENCE = [4, 3, 3, 2, 2, 2, 1, 1];
 
 // Генерація коду кімнати
@@ -218,7 +218,7 @@ class GameRoom {
       }
       
       // Якщо недостатньо невикористаних карток, скидаємо для цього раунду
-      if (availableIndices.length < 3) {
+      if (availableIndices.length < 4) {
         console.log(`Not enough unused sets for round ${this.currentRound}, resetting...`);
         this.usedWordSetIndices = this.usedWordSetIndices.filter(id => !id.startsWith(`${this.currentRound}-`));
         availableIndices = [];
@@ -226,41 +226,43 @@ class GameRoom {
           availableIndices.push(i);
         }
       }
-      
-      // Вибираємо 3 випадкові картки з доступних
+
+      // Вибираємо 4 випадкові картки з доступних
       const selectedIndices = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         const randomIndex = Math.floor(Math.random() * availableIndices.length);
         const selectedIndex = availableIndices[randomIndex];
         selectedIndices.push(selectedIndex);
         availableIndices.splice(randomIndex, 1); // Видаляємо вибраний індекс
-        
+
         // Запам'ятовуємо використану картку
         const setId = `${this.currentRound}-${selectedIndex}`;
         this.usedWordSetIndices.push(setId);
       }
-      
+
       // Парсимо вибрані картки (розділяємо по комах та обрізаємо пробіли)
       const wordSet = {
         A: roundWordStrings[selectedIndices[0]].split(',').map(word => word.trim()),
         B: roundWordStrings[selectedIndices[1]].split(',').map(word => word.trim()),
-        C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim())
+        C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim()),
+        D: roundWordStrings[selectedIndices[3]].split(',').map(word => word.trim())
       };
-      
+
       console.log(`Round ${this.currentRound}: using cards ${selectedIndices.join(', ')} from round pool`);
-      
+
       // Перевіряємо що кожна картка має рівно 9 слів
-      if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9) {
+      if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9 || wordSet.D.length !== 9) {
         console.error('Word set validation error: each card must have exactly 9 words');
         console.log('Card A:', wordSet.A.length, 'words');
         console.log('Card B:', wordSet.B.length, 'words');
         console.log('Card C:', wordSet.C.length, 'words');
+        console.log('Card D:', wordSet.D.length, 'words');
       }
-      
+
       // Призначаємо кожному гравцю букву та номер
       const assignments = new Map();
       const usedNumbers = new Set();
-      const letters = ['A', 'B', 'C'];
+      const letters = ['A', 'B', 'C', 'D'];
       
       for (let [playerId] of this.players) {
         let number;

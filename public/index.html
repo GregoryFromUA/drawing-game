@@ -1312,7 +1312,7 @@
                                 
                                 <div className="lobby-right">
                                     <div className="players-list">
-                                        <h3>Гравці ({roomData?.players?.length || 0}/9):</h3>
+                                        <h3>Гравці ({roomData?.players?.length || 0}/12):</h3>
                                         {roomData?.players?.map(player => (
                                             <div 
                                                 key={player.id}
@@ -1526,7 +1526,7 @@
                                 Формула: (Кількість гравців - 1) × 4
                             </p>
                             <p>
-                                Наприклад, для 3 гравців максимум = 8 очок, для 9 гравців = 32 очки
+                                Наприклад, для 3 гравців максимум = 8 очок, для 12 гравців = 44 очки
                             </p>
                         </div>
                     </div>
@@ -1756,7 +1756,8 @@
             const wordsByCard = {
                 A: roundData?.wordSet?.A || [],
                 B: roundData?.wordSet?.B || [],
-                C: roundData?.wordSet?.C || []
+                C: roundData?.wordSet?.C || [],
+                D: roundData?.wordSet?.D || []
             };
             
             return (
@@ -1968,15 +1969,15 @@
                         
                         {/* Права панель з картками */}
                         <div className="cards-panel">
-                            {['A', 'B', 'C'].map(letter => (
+                            {['A', 'B', 'C', 'D'].map(letter => (
                                 <div key={letter} className="word-card">
                                     <div className="word-grid">
                                         {wordsByCard[letter].map((word, index) => (
-                                            <div 
+                                            <div
                                                 key={index}
                                                 className={`word-item ${
-                                                    myAssignment?.letter === letter && myAssignment?.number === index + 1 
-                                                        ? 'my-word' 
+                                                    myAssignment?.letter === letter && myAssignment?.number === index + 1
+                                                        ? 'my-word'
                                                         : ''
                                                 }`}
                                                 title={word}
