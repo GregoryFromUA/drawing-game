@@ -664,34 +664,42 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Завершення відгадування
+  // Завершення відгадування (опціонально, для майбутньої функціональності)
   socket.on('finish_guessing', () => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
-    
+
     const blackToken = room.finishGuessing(currentPlayerId);
     socket.emit('black_token_received', { score: blackToken });
-    
+
     io.to(currentRoomCode).emit('player_finished_guessing', {
       playerId: currentPlayerId
     });
-    
-    // Перевіряємо завершення раунду
-    if (room.isRoundComplete()) {
-      const scores = room.calculateRoundScores();
-      io.to(currentRoomCode).emit('round_ended', scores);
-      
-      // Перевіряємо завершення гри
-      if (room.isGameComplete()) {
-        room.state = 'game_end';
-        io.to(currentRoomCode).emit('game_ended', {
-          finalScores: scores.totalScores,
-          winner: Object.entries(scores.totalScores)
-            .sort(([,a], [,b]) => b - a)[0][0]
-        });
-      } else {
-        room.state = 'round_end';
-      }
+  });
+
+  // НОВЕ: Завершення раунду (тільки хост)
+  socket.on('end_round', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || currentPlayerId !== room.hostId) {
+      console.log(`Player ${currentPlayerId} tried to end round but is not host`);
+      return;
+    }
+
+    console.log(`Host ${currentPlayerId} ending round ${room.currentRound}`);
+
+    const scores = room.calculateRoundScores();
+    io.to(currentRoomCode).emit('round_ended', scores);
+
+    // Перевіряємо завершення гри
+    if (room.isGameComplete()) {
+      room.state = 'game_end';
+      io.to(currentRoomCode).emit('game_ended', {
+        finalScores: scores.totalScores,
+        winner: Object.entries(scores.totalScores)
+          .sort(([,a], [,b]) => b - a)[0][0]
+      });
+    } else {
+      room.state = 'round_end';
     }
   });
   
