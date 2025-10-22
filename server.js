@@ -368,30 +368,34 @@ class GameRoom {
   makeGuess(guesserId, targetId, number) {
     // Перевіряємо чи не себе відгадує
     if (guesserId === targetId) return false;
-    
+
     // Перевіряємо чи вже відгадував цього гравця
     if (!this.guesses.has(guesserId)) {
       this.guesses.set(guesserId, new Map());
     }
-    
+
     const guesserGuesses = this.guesses.get(guesserId);
     if (guesserGuesses.has(targetId)) return false;
-    
+
     // Перевіряємо чи не використаний вже цей номер
-    const usedNumbers = new Set(guesserGuesses.values());
+    const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
     if (usedNumbers.has(number)) return false;
-    
+
+    // Перевіряємо правильність
+    const correct = this.roundData.assignments.get(targetId).number === number;
+
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
       number,
       time: Date.now(),
-      correct: this.roundData.assignments.get(targetId).number === number
+      correct
     });
-    
+
     // Блокуємо малюнок після першої здогадки
     this.lockDrawing(targetId, 'first_guess');
-    
-    return true;
+
+    // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом
+    return { success: true, correct };
   }
 
   finishGuessing(playerId) {
@@ -642,10 +646,13 @@ io.on('connection', (socket) => {
   socket.on('make_guess', ({ targetId, number }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
-    
-    if (room.makeGuess(currentPlayerId, targetId, number)) {
-      socket.emit('guess_accepted', { targetId, number });
-      
+
+    const result = room.makeGuess(currentPlayerId, targetId, number);
+
+    if (result && result.success) {
+      // ВИПРАВЛЕНО: Додаємо correct до відповіді (тільки для гравця що відгадував)
+      socket.emit('guess_accepted', { targetId, number, correct: result.correct });
+
       // Повідомляємо про блокування малюнка
       io.to(currentRoomCode).emit('drawing_locked', {
         playerId: targetId

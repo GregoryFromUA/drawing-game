@@ -744,6 +744,29 @@
             box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
         }
 
+        /* НОВЕ: Стилі для правильних/неправильних відповідей */
+        .word-item.correct {
+            background: #4caf50 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #388e3c;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
+        }
+
+        .word-item.incorrect {
+            background: #f44336 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #d32f2f;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
+        }
+
         .word-item:not(.my-word):not(.used) {
             cursor: grab;
         }
@@ -1070,6 +1093,7 @@
             const [drawings, setDrawings] = useState({});
             const [myGuesses, setMyGuesses] = useState({});
             const [usedNumbers, setUsedNumbers] = useState(new Set());
+            const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
             const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
@@ -1117,6 +1141,7 @@
                     setDrawings({});
                     setMyGuesses({});
                     setUsedNumbers(new Set());
+                    setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
                     setIsDrawingLocked(false);
                 });
                 
@@ -1140,9 +1165,22 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number }) => {
+                newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
+
+                    // НОВЕ: Зберігаємо правильність здогадки
+                    // Знаходимо letter для цього number з roundData
+                    const targetAssignment = roundData?.players?.find(p => p.id === targetId);
+                    if (targetAssignment) {
+                        // Потрібно знайти letter з wordAssignments на основі targetId та number
+                        // Але ми не знаємо letter тут... Потрібно зберігати по-іншому
+                        // Збережемо по targetId, а при рендері перевіримо
+                        setMyGuessResults(prev => ({
+                            ...prev,
+                            [targetId]: { number, correct }
+                        }));
+                    }
                 });
                 
                 newSocket.on('round_ended', (results) => {
@@ -1397,6 +1435,7 @@
                         setDrawings={setDrawings}
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
+                        myGuessResults={myGuessResults}
                         isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
@@ -1572,6 +1611,7 @@
             setDrawings,
             myGuesses,
             usedNumbers,
+            myGuessResults,
             isDrawingLocked,
             makeGuess,
             isHost,
@@ -2148,10 +2188,18 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
+                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
+                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                        pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
+                                    );
+                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
+                                    const isCorrect = guessResult?.correct === true;
+                                    const isIncorrect = guessResult?.correct === false;
+
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
@@ -2182,10 +2230,18 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
+                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
+                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                        pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
+                                    );
+                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
+                                    const isCorrect = guessResult?.correct === true;
+                                    const isIncorrect = guessResult?.correct === false;
+
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
