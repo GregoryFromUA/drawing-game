@@ -651,6 +651,7 @@ io.on('connection', (socket) => {
 
     if (result && result.success) {
       // ВИПРАВЛЕНО: Додаємо correct до відповіді (тільки для гравця що відгадував)
+      console.log(`✅ Player ${currentPlayerId} guessed ${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
       socket.emit('guess_accepted', { targetId, number, correct: result.correct });
 
       // Повідомляємо про блокування малюнка

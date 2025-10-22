@@ -1166,21 +1166,16 @@
                 });
 
                 newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, correct }); // DEBUG
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
 
                     // НОВЕ: Зберігаємо правильність здогадки
-                    // Знаходимо letter для цього number з roundData
-                    const targetAssignment = roundData?.players?.find(p => p.id === targetId);
-                    if (targetAssignment) {
-                        // Потрібно знайти letter з wordAssignments на основі targetId та number
-                        // Але ми не знаємо letter тут... Потрібно зберігати по-іншому
-                        // Збережемо по targetId, а при рендері перевіримо
-                        setMyGuessResults(prev => ({
-                            ...prev,
-                            [targetId]: { number, correct }
-                        }));
-                    }
+                    setMyGuessResults(prev => {
+                        const newResults = { ...prev, [targetId]: { number, correct } };
+                        console.log('📊 myGuessResults updated:', newResults); // DEBUG
+                        return newResults;
+                    });
                 });
                 
                 newSocket.on('round_ended', (results) => {
