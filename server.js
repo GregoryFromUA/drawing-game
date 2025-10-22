@@ -22,7 +22,7 @@ app.use(express.static('public'));
 // Константи гри
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
-const MAX_PLAYERS = 9;
+const MAX_PLAYERS = 12;
 const SCORE_SEQUENCE = [4, 3, 3, 2, 2, 2, 1, 1];
 
 // Генерація коду кімнати
@@ -48,7 +48,6 @@ class GameRoom {
     this.guesses = new Map();
     this.scores = new Map();
     this.readyPlayers = new Set();
-    this.finishedDrawing = new Set();
     this.finishedGuessing = new Set();
     this.blackTokensGiven = [];
     this.drawingLocks = new Map(); // Блокування малюнків
@@ -65,7 +64,6 @@ class GameRoom {
     this.guesses.clear();
     this.scores.clear();
     this.readyPlayers.clear();
-    this.finishedDrawing.clear();
     this.finishedGuessing.clear();
     this.drawingLocks.clear();
     this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
@@ -125,7 +123,6 @@ class GameRoom {
       // ВИПРАВЛЕНО: Очищаємо дані відключеного гравця
       this.drawingRateLimit.delete(id);
       this.readyPlayers.delete(id);
-      this.finishedDrawing.delete(id);
       this.finishedGuessing.delete(id);
       this.drawingLocks.delete(id);
       
@@ -164,9 +161,8 @@ class GameRoom {
     
     try {
       this.currentRound++;
-      
+
       // ВИПРАВЛЕНО: Повне очищення попередніх даних раунду
-      this.finishedDrawing.clear();
       this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
@@ -218,7 +214,7 @@ class GameRoom {
       }
       
       // Якщо недостатньо невикористаних карток, скидаємо для цього раунду
-      if (availableIndices.length < 3) {
+      if (availableIndices.length < 4) {
         console.log(`Not enough unused sets for round ${this.currentRound}, resetting...`);
         this.usedWordSetIndices = this.usedWordSetIndices.filter(id => !id.startsWith(`${this.currentRound}-`));
         availableIndices = [];
@@ -226,52 +222,63 @@ class GameRoom {
           availableIndices.push(i);
         }
       }
-      
-      // Вибираємо 3 випадкові картки з доступних
+
+      // Вибираємо 4 випадкові картки з доступних
       const selectedIndices = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         const randomIndex = Math.floor(Math.random() * availableIndices.length);
         const selectedIndex = availableIndices[randomIndex];
         selectedIndices.push(selectedIndex);
         availableIndices.splice(randomIndex, 1); // Видаляємо вибраний індекс
-        
+
         // Запам'ятовуємо використану картку
         const setId = `${this.currentRound}-${selectedIndex}`;
         this.usedWordSetIndices.push(setId);
       }
-      
+
       // Парсимо вибрані картки (розділяємо по комах та обрізаємо пробіли)
       const wordSet = {
         A: roundWordStrings[selectedIndices[0]].split(',').map(word => word.trim()),
         B: roundWordStrings[selectedIndices[1]].split(',').map(word => word.trim()),
-        C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim())
+        C: roundWordStrings[selectedIndices[2]].split(',').map(word => word.trim()),
+        D: roundWordStrings[selectedIndices[3]].split(',').map(word => word.trim())
       };
-      
+
       console.log(`Round ${this.currentRound}: using cards ${selectedIndices.join(', ')} from round pool`);
-      
+
       // Перевіряємо що кожна картка має рівно 9 слів
-      if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9) {
+      if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9 || wordSet.D.length !== 9) {
         console.error('Word set validation error: each card must have exactly 9 words');
         console.log('Card A:', wordSet.A.length, 'words');
         console.log('Card B:', wordSet.B.length, 'words');
         console.log('Card C:', wordSet.C.length, 'words');
+        console.log('Card D:', wordSet.D.length, 'words');
       }
-      
-      // Призначаємо кожному гравцю букву та номер
+
+      // Призначаємо кожному гравцю унікальну комбінацію (буква + номер)
       const assignments = new Map();
-      const usedNumbers = new Set();
-      const letters = ['A', 'B', 'C'];
-      
+      const letters = ['A', 'B', 'C', 'D'];
+
+      // ВИПРАВЛЕНО: Створюємо всі можливі комбінації (4 букви × 9 номерів = 36 слів)
+      const allCombinations = [];
+      for (let letter of letters) {
+        for (let number = 1; number <= 9; number++) {
+          allCombinations.push({ letter, number });
+        }
+      }
+
+      // Перемішуємо комбінації (shuffle)
+      for (let i = allCombinations.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allCombinations[i], allCombinations[j]] = [allCombinations[j], allCombinations[i]];
+      }
+
+      // Призначаємо унікальну комбінацію кожному гравцю
+      let combinationIndex = 0;
       for (let [playerId] of this.players) {
-        let number;
-        do {
-          number = Math.floor(Math.random() * 9) + 1;
-        } while (usedNumbers.has(number));
-        usedNumbers.add(number);
-        
-        const letter = letters[Math.floor(Math.random() * letters.length)];
+        const { letter, number } = allCombinations[combinationIndex++];
         const word = wordSet[letter][number - 1];
-        
+
         assignments.set(playerId, {
           letter,
           number,
@@ -346,11 +353,6 @@ class GameRoom {
     }
     this.drawings.get(playerId).push(data);
     return true;
-  }
-
-  finishDrawing(playerId) {
-    this.finishedDrawing.add(playerId);
-    this.lockDrawing(playerId, 'manual_finish');
   }
 
   lockDrawing(playerId, reason) {
@@ -629,24 +631,13 @@ io.on('connection', (socket) => {
   socket.on('clear_canvas', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || room.drawingLocks.has(currentPlayerId)) return;
-    
+
     room.drawings.set(currentPlayerId, []);
     io.to(currentRoomCode).emit('canvas_cleared', {
       playerId: currentPlayerId
     });
   });
-  
-  // Завершення малювання
-  socket.on('finish_drawing', () => {
-    const room = rooms.get(currentRoomCode);
-    if (!room) return;
-    
-    room.finishDrawing(currentPlayerId);
-    io.to(currentRoomCode).emit('player_finished_drawing', {
-      playerId: currentPlayerId
-    });
-  });
-  
+
   // Здогадка
   socket.on('make_guess', ({ targetId, number }) => {
     const room = rooms.get(currentRoomCode);
@@ -664,34 +655,42 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Завершення відгадування
+  // Завершення відгадування (опціонально, для майбутньої функціональності)
   socket.on('finish_guessing', () => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
-    
+
     const blackToken = room.finishGuessing(currentPlayerId);
     socket.emit('black_token_received', { score: blackToken });
-    
+
     io.to(currentRoomCode).emit('player_finished_guessing', {
       playerId: currentPlayerId
     });
-    
-    // Перевіряємо завершення раунду
-    if (room.isRoundComplete()) {
-      const scores = room.calculateRoundScores();
-      io.to(currentRoomCode).emit('round_ended', scores);
-      
-      // Перевіряємо завершення гри
-      if (room.isGameComplete()) {
-        room.state = 'game_end';
-        io.to(currentRoomCode).emit('game_ended', {
-          finalScores: scores.totalScores,
-          winner: Object.entries(scores.totalScores)
-            .sort(([,a], [,b]) => b - a)[0][0]
-        });
-      } else {
-        room.state = 'round_end';
-      }
+  });
+
+  // НОВЕ: Завершення раунду (тільки хост)
+  socket.on('end_round', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || currentPlayerId !== room.hostId) {
+      console.log(`Player ${currentPlayerId} tried to end round but is not host`);
+      return;
+    }
+
+    console.log(`Host ${currentPlayerId} ending round ${room.currentRound}`);
+
+    const scores = room.calculateRoundScores();
+    io.to(currentRoomCode).emit('round_ended', scores);
+
+    // Перевіряємо завершення гри
+    if (room.isGameComplete()) {
+      room.state = 'game_end';
+      io.to(currentRoomCode).emit('game_ended', {
+        finalScores: scores.totalScores,
+        winner: Object.entries(scores.totalScores)
+          .sort(([,a], [,b]) => b - a)[0][0]
+      });
+    } else {
+      room.state = 'round_end';
     }
   });
   
