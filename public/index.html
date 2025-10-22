@@ -1066,7 +1066,6 @@
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
-            const [canEndRound, setCanEndRound] = useState(false);
             
             // Ініціалізація Socket.io
             useEffect(() => {
@@ -1109,7 +1108,6 @@
                     setMyGuesses({});
                     setUsedNumbers(new Set());
                     setIsDrawingLocked(false);
-                    setCanEndRound(false); // Скидаємо можливість завершити раунд
                 });
                 
                 newSocket.on('drawing_updated', ({ playerId, strokes }) => {
@@ -1213,21 +1211,12 @@
             const makeGuess = (targetId, number) => {
                 if (socket && !myGuesses[targetId] && !usedNumbers.has(number)) {
                     socket.emit('make_guess', { targetId, number });
-                    // Перевіряємо чи хост відгадав всіх гравців
-                    if (isHost) {
-                        const otherPlayersCount = roundData?.players?.filter(p => p.id !== playerId).length || 0;
-                        const guessedCount = Object.keys(myGuesses).length + 1; // +1 за поточну здогадку
-                        if (guessedCount >= otherPlayersCount) {
-                            setCanEndRound(true);
-                        }
-                    }
                 }
             };
 
             const endRound = () => {
                 if (socket && isHost) {
                     socket.emit('end_round');
-                    setCanEndRound(false);
                 }
             };
 
@@ -1402,7 +1391,6 @@
                         makeGuess={makeGuess}
                         isHost={isHost}
                         endRound={endRound}
-                        canEndRound={canEndRound}
                     />
                 );
             }
@@ -1577,8 +1565,7 @@
             isDrawingLocked,
             makeGuess,
             isHost,
-            endRound,
-            canEndRound
+            endRound
         }) {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
@@ -2061,32 +2048,11 @@
                                                     </label>
 
                                                     <button
-                                                        className={`action-btn ${canEndRound ? 'btn-primary' : 'btn-secondary'}`}
+                                                        className="action-btn btn-primary"
                                                         onClick={endRound}
-                                                        disabled={!canEndRound}
-                                                        style={{
-                                                            width: '100%',
-                                                            opacity: canEndRound ? 1 : 0.6,
-                                                            cursor: canEndRound ? 'pointer' : 'not-allowed',
-                                                            position: 'relative',
-                                                            padding: '10px 6px',
-                                                            transition: 'all 0.3s'
-                                                        }}
-                                                        title={!canEndRound ?
-                                                            'Відгадайте всіх гравців щоб завершити раунд' :
-                                                            'Натисніть щоб завершити раунд і показати результати'
-                                                        }
+                                                        title="Натисніть щоб завершити раунд і показати результати"
                                                     >
-                                                        <div style={{ fontSize: '0.85em', fontWeight: '600' }}>
-                                                            Завершити раунд
-                                                        </div>
-                                                        <div style={{
-                                                            fontSize: '0.7em',
-                                                            marginTop: '2px',
-                                                            opacity: 0.8
-                                                        }}>
-                                                            {Object.keys(myGuesses).length}/{otherPlayers.length} гравців
-                                                        </div>
+                                                        Завершити раунд
                                                     </button>
                                                 </div>
                                             )}
