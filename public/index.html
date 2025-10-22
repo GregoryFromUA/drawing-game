@@ -675,37 +675,47 @@
         
         /* Права панель з картками */
         .cards-panel {
-            width: 350px;
+            width: 450px;
             background: #f8f8f8;
             padding: 10px;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             gap: 10px;
             overflow-y: auto;
         }
-        
+
+        /* Стовпець слів (18 слів вертикально) */
+        .word-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
         .word-card {
             background: white;
             padding: 8px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
-        
+
         .word-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 4px;
         }
-        
+
         .word-item {
-            padding: 4px 6px;
+            padding: 8px 10px;
             background: #f0f0f0;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 4px;
-            font-size: 0.75em;
+            font-size: 1.2em;
             transition: all 0.3s;
+            min-height: 36px;
         }
         
         .word-item:hover {
@@ -732,6 +742,29 @@
             font-weight: bold;
             border: 2px solid #4c6ef5;
             box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        /* НОВЕ: Стилі для правильних/неправильних відповідей */
+        .word-item.correct {
+            background: #4caf50 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #388e3c;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
+        }
+
+        .word-item.incorrect {
+            background: #f44336 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #d32f2f;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
         }
 
         .word-item:not(.my-word):not(.used) {
@@ -1060,6 +1093,7 @@
             const [drawings, setDrawings] = useState({});
             const [myGuesses, setMyGuesses] = useState({});
             const [usedNumbers, setUsedNumbers] = useState(new Set());
+            const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
             const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
@@ -1107,6 +1141,7 @@
                     setDrawings({});
                     setMyGuesses({});
                     setUsedNumbers(new Set());
+                    setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
                     setIsDrawingLocked(false);
                 });
                 
@@ -1130,9 +1165,17 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number }) => {
+                newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, correct }); // DEBUG
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
+
+                    // НОВЕ: Зберігаємо правильність здогадки
+                    setMyGuessResults(prev => {
+                        const newResults = { ...prev, [targetId]: { number, correct } };
+                        console.log('📊 myGuessResults updated:', newResults); // DEBUG
+                        return newResults;
+                    });
                 });
                 
                 newSocket.on('round_ended', (results) => {
@@ -1387,6 +1430,7 @@
                         setDrawings={setDrawings}
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
+                        myGuessResults={myGuessResults}
                         isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
@@ -1562,6 +1606,7 @@
             setDrawings,
             myGuesses,
             usedNumbers,
+            myGuessResults,
             isDrawingLocked,
             makeGuess,
             isHost,
@@ -2127,41 +2172,89 @@
                         
                         {/* Права панель з картками */}
                         <div className="cards-panel">
-                            {['A', 'B', 'C', 'D'].map(letter => (
-                                <div key={letter} className="word-card">
-                                    <div className="word-grid">
-                                        {wordsByCard[letter].map((word, index) => {
-                                            const number = index + 1;
-                                            const isMyWord = myAssignment?.letter === letter && myAssignment?.number === number;
-                                            const isUsed = Object.values(wordAssignments).some(
-                                                w => w.letter === letter && w.number === number
-                                            );
-                                            const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
+                            {/* Лівий стовпець: A + B (18 слів) */}
+                            <div className="word-column">
+                                {[...wordsByCard.A, ...wordsByCard.B].map((word, globalIndex) => {
+                                    const letter = globalIndex < 9 ? 'A' : 'B';
+                                    const number = globalIndex < 9 ? globalIndex + 1 : globalIndex - 8;
+                                    const isMyWord = myAssignment?.letter === letter && myAssignment?.number === number;
+                                    const isUsed = Object.values(wordAssignments).some(
+                                        w => w.letter === letter && w.number === number
+                                    );
+                                    const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
-                                            return (
-                                                <div
-                                                    key={index}
-                                                    className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''}`}
-                                                    title={word}
-                                                    draggable={!isMyWord && !isUsed}
-                                                    onClick={() => handleWordClick(letter, number, word)}
-                                                    onDragStart={(e) => handleWordDragStart(e, letter, number, word)}
-                                                    onDragEnd={handleDragEnd}
-                                                    onTouchStart={(e) => handleWordTouchStart(e, letter, number, word)}
-                                                    onTouchMove={handleTouchMove}
-                                                    onTouchEnd={handleTouchEnd}
-                                                    style={{
-                                                        cursor: isMyWord || isUsed ? 'not-allowed' : 'pointer',
-                                                        touchAction: 'none'
-                                                    }}
-                                                >
-                                                    <span className="word-text">{word}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
+                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
+                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                        pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
+                                    );
+                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
+                                    const isCorrect = guessResult?.correct === true;
+                                    const isIncorrect = guessResult?.correct === false;
+
+                                    return (
+                                        <div
+                                            key={`${letter}-${number}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            title={word}
+                                            draggable={!isMyWord && !isUsed}
+                                            onClick={() => handleWordClick(letter, number, word)}
+                                            onDragStart={(e) => handleWordDragStart(e, letter, number, word)}
+                                            onDragEnd={handleDragEnd}
+                                            onTouchStart={(e) => handleWordTouchStart(e, letter, number, word)}
+                                            onTouchMove={handleTouchMove}
+                                            onTouchEnd={handleTouchEnd}
+                                            style={{
+                                                cursor: isMyWord || isUsed ? 'not-allowed' : 'pointer',
+                                                touchAction: 'none'
+                                            }}
+                                        >
+                                            <span className="word-text">{word}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Правий стовпець: C + D (18 слів) */}
+                            <div className="word-column">
+                                {[...wordsByCard.C, ...wordsByCard.D].map((word, globalIndex) => {
+                                    const letter = globalIndex < 9 ? 'C' : 'D';
+                                    const number = globalIndex < 9 ? globalIndex + 1 : globalIndex - 8;
+                                    const isMyWord = myAssignment?.letter === letter && myAssignment?.number === number;
+                                    const isUsed = Object.values(wordAssignments).some(
+                                        w => w.letter === letter && w.number === number
+                                    );
+                                    const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
+
+                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
+                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                        pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
+                                    );
+                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
+                                    const isCorrect = guessResult?.correct === true;
+                                    const isIncorrect = guessResult?.correct === false;
+
+                                    return (
+                                        <div
+                                            key={`${letter}-${number}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            title={word}
+                                            draggable={!isMyWord && !isUsed}
+                                            onClick={() => handleWordClick(letter, number, word)}
+                                            onDragStart={(e) => handleWordDragStart(e, letter, number, word)}
+                                            onDragEnd={handleDragEnd}
+                                            onTouchStart={(e) => handleWordTouchStart(e, letter, number, word)}
+                                            onTouchMove={handleTouchMove}
+                                            onTouchEnd={handleTouchEnd}
+                                            style={{
+                                                cursor: isMyWord || isUsed ? 'not-allowed' : 'pointer',
+                                                touchAction: 'none'
+                                            }}
+                                        >
+                                            <span className="word-text">{word}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
                     
