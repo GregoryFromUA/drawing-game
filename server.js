@@ -48,7 +48,6 @@ class GameRoom {
     this.guesses = new Map();
     this.scores = new Map();
     this.readyPlayers = new Set();
-    this.finishedGuessing = new Set();
     this.usedWordSetIndices = []; // Зберігаємо індекси використаних наборів для уникнення повторів
     this.isStartingRound = false; // НОВЕ: Захист від race condition
     this.drawingRateLimit = new Map(); // НОВЕ: Rate limiting для малювання
@@ -62,7 +61,6 @@ class GameRoom {
     this.guesses.clear();
     this.scores.clear();
     this.readyPlayers.clear();
-    this.finishedGuessing.clear();
     this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
     
     // Обмежуємо usedWordSetIndices максимум 100 записами (достатньо для 25 ігор)
@@ -115,8 +113,7 @@ class GameRoom {
       // ВИПРАВЛЕНО: Очищаємо дані відключеного гравця
       this.drawingRateLimit.delete(id);
       this.readyPlayers.delete(id);
-      this.finishedGuessing.delete(id);
-      
+
       // Видаляємо малюнки відключеного гравця для економії пам'яті
       if (this.state === 'playing' && this.drawings.has(id)) {
         const drawingSize = this.drawings.get(id)?.length || 0;
@@ -153,7 +150,6 @@ class GameRoom {
       this.currentRound++;
 
       // ВИПРАВЛЕНО: Повне очищення попередніх даних раунду
-      this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
       this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
@@ -349,14 +345,6 @@ class GameRoom {
 
     // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом
     return { success: true, correct };
-  }
-
-  finishGuessing(playerId) {
-    this.finishedGuessing.add(playerId);
-  }
-
-  isRoundComplete() {
-    return this.finishedGuessing.size === this.players.size;
   }
 
   calculateRoundScores() {
@@ -586,20 +574,6 @@ io.on('connection', (socket) => {
     } else {
       socket.emit('guess_rejected', { targetId, number });
     }
-  });
-  
-  // Завершення відгадування (опціонально, для майбутньої функціональності)
-  socket.on('finish_guessing', () => {
-    const room = rooms.get(currentRoomCode);
-    if (!room) return;
-
-    room.finishGuessing(currentPlayerId);
-
-    io.to(currentRoomCode).emit('player_finished_guessing', {
-      playerId: currentPlayerId,
-      finishedCount: room.finishedGuessing.size,
-      totalPlayers: room.players.size
-    });
   });
 
   // НОВЕ: Завершення раунду (тільки хост)

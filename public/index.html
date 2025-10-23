@@ -1099,7 +1099,6 @@
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
-            const [guessingProgress, setGuessingProgress] = useState({ finished: 0, total: 0 });
 
             // Ініціалізація Socket.io
             useEffect(() => {
@@ -1167,10 +1166,6 @@
                         const newResults = { ...prev, [targetId]: { number, correct } };
                         return newResults;
                     });
-                });
-
-                newSocket.on('player_finished_guessing', ({ finishedCount, totalPlayers }) => {
-                    setGuessingProgress({ finished: finishedCount, total: totalPlayers });
                 });
 
                 newSocket.on('round_ended', (results) => {
@@ -1453,7 +1448,6 @@
                         makeGuess={makeGuess}
                         isHost={isHost}
                         endRound={endRound}
-                        guessingProgress={guessingProgress}
                     />
                 );
             }
@@ -1622,8 +1616,7 @@
             myGuessResults,
             makeGuess,
             isHost,
-            endRound,
-            guessingProgress
+            endRound
         }) {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
@@ -1632,7 +1625,6 @@
             const [currentTool, setCurrentTool] = useState('pen');
             const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
-            const [hasFinishedGuessing, setHasFinishedGuessing] = useState(false);
 
             // Нове: Drag-and-Drop та Select стан
             const [selectedWord, setSelectedWord] = useState(null); // {letter, number, word}
@@ -1699,11 +1691,6 @@
         ctx.fillRect(0, 0, 640, 480);
     }
 }, []);
-
-            // Reset hasFinishedGuessing when round changes
-            useEffect(() => {
-                setHasFinishedGuessing(false);
-            }, [roundData?.round]);
 
             const startDrawing = (e) => {
     setIsDrawing(true);
@@ -1826,13 +1813,6 @@
         socket.emit('clear_canvas');
     }
 };
-
-            const handleFinishGuessing = () => {
-                if (socket && !hasFinishedGuessing) {
-                    socket.emit('finish_guessing');
-                    setHasFinishedGuessing(true);
-                }
-            };
 
             // Обробники для нової системи відгадування
             const createGuess = (wordData, targetPlayerId) => {
@@ -2093,23 +2073,6 @@
                                                 Очистити
                                             </button>
 
-                                            {/* Кнопка завершення відгадування (для всіх гравців) */}
-                                            {!isHost && (
-                                                <button
-                                                    className="action-btn btn-primary"
-                                                    onClick={handleFinishGuessing}
-                                                    disabled={hasFinishedGuessing}
-                                                    title={hasFinishedGuessing ? "Ви вже позначили, що завершили" : "Натисніть, коли завершите відгадувати всі малюнки"}
-                                                    style={{
-                                                        marginTop: '10px',
-                                                        opacity: hasFinishedGuessing ? 0.6 : 1,
-                                                        cursor: hasFinishedGuessing ? 'not-allowed' : 'pointer'
-                                                    }}
-                                                >
-                                                    {hasFinishedGuessing ? '✓ Завершено' : 'Завершити відгадування'}
-                                                </button>
-                                            )}
-
                                             {/* Кнопка завершення раунду (тільки для хоста) */}
                                             {isHost && otherPlayers.length > 0 && (
                                                 <div style={{
@@ -2134,18 +2097,6 @@
                                                     >
                                                         Завершити раунд
                                                     </button>
-
-                                                    <div style={{
-                                                        marginTop: '8px',
-                                                        fontSize: '0.75em',
-                                                        color: '#666',
-                                                        textAlign: 'center',
-                                                        padding: '5px',
-                                                        background: '#f0f0f0',
-                                                        borderRadius: '5px'
-                                                    }}>
-                                                        {guessingProgress.finished}/{guessingProgress.total} гравців завершили
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>
