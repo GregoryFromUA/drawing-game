@@ -1094,19 +1094,18 @@
             const [myGuesses, setMyGuesses] = useState({});
             const [usedNumbers, setUsedNumbers] = useState(new Set());
             const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
-            const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
-            
+            const [guessingProgress, setGuessingProgress] = useState({ finished: 0, total: 0 });
+
             // Ініціалізація Socket.io
             useEffect(() => {
                 const newSocket = io(SERVER_URL);
                 
                 newSocket.on('connect', () => {
-                    console.log('Connected to server');
                 });
                 
                 newSocket.on('room_created', ({ roomCode, playerId, state }) => {
@@ -1142,7 +1141,7 @@
                     setMyGuesses({});
                     setUsedNumbers(new Set());
                     setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
-                    setIsDrawingLocked(false);
+                    setGuessingProgress({ finished: 0, total: data.players?.length || 0 });
                 });
                 
                 newSocket.on('drawing_updated', ({ playerId, strokes }) => {
@@ -1158,26 +1157,22 @@
                         [playerId]: []
                     }));
                 });
-                
-                newSocket.on('drawing_locked', ({ playerId: lockedPlayerId }) => {
-                    if (lockedPlayerId === playerId) {
-                        setIsDrawingLocked(true);
-                    }
-                });
 
                 newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
-                    console.log('✅ guess_accepted:', { targetId, number, correct }); // DEBUG
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
 
                     // НОВЕ: Зберігаємо правильність здогадки
                     setMyGuessResults(prev => {
                         const newResults = { ...prev, [targetId]: { number, correct } };
-                        console.log('📊 myGuessResults updated:', newResults); // DEBUG
                         return newResults;
                     });
                 });
-                
+
+                newSocket.on('player_finished_guessing', ({ finishedCount, totalPlayers }) => {
+                    setGuessingProgress({ finished: finishedCount, total: totalPlayers });
+                });
+
                 newSocket.on('round_ended', (results) => {
                     setRoundResults(results);
                     setGameState('round_end');
@@ -1203,7 +1198,31 @@
                 newSocket.on('player_disconnected', ({ playerId: disconnectedId, state }) => {
                     setRoomData(state);
                 });
-                
+
+                newSocket.on('disconnect', () => {
+                    setError('Втрачено з\'єднання з сервером. Спроба переподключення...');
+                });
+
+                newSocket.on('reconnect', (attemptNumber) => {
+                    setError('');
+
+                    const savedSession = localStorage.getItem('gameSession');
+                    if (savedSession) {
+                        try {
+                            const { roomCode: savedRoom, playerId: savedId, playerName: savedName } = JSON.parse(savedSession);
+                            if (savedRoom && savedId && savedName) {
+                                newSocket.emit('join_room', {
+                                    roomCode: savedRoom,
+                                    playerName: savedName,
+                                    playerId: savedId
+                                });
+                            }
+                        } catch (e) {
+                            // Ігноруємо помилки парсингу
+                        }
+                    }
+                });
+
                 setSocket(newSocket);
                 
                 // Спроба відновити сесію
@@ -1431,10 +1450,10 @@
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
                         myGuessResults={myGuessResults}
-                        isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
                         endRound={endRound}
+                        guessingProgress={guessingProgress}
                     />
                 );
             }
@@ -1607,10 +1626,10 @@
             myGuesses,
             usedNumbers,
             myGuessResults,
-            isDrawingLocked,
             makeGuess,
             isHost,
-            endRound
+            endRound,
+            guessingProgress
         }) {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
@@ -1687,8 +1706,6 @@
 }, []);
             
             const startDrawing = (e) => {
-    if (isDrawingLocked) return;
-
     setIsDrawing(true);
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -1730,7 +1747,7 @@
             };
             
             const draw = useCallback((e) => {
-    if (!isDrawing || isDrawingLocked || lastXRef.current === null) return;
+    if (!isDrawing || lastXRef.current === null) return;
     
     e.preventDefault();
     
@@ -1776,7 +1793,7 @@
                 
                strokeBufferRef.current.push(strokeData);
     setMyDrawingData(prev => [...prev, strokeData]);
-}, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
+}, [isDrawing, currentColor, currentSize, currentTool]);
             
             const stopDrawing = () => {
                 if (isDrawing) {
@@ -1792,8 +1809,6 @@
             };
             
             const clearCanvas = () => {
-    if (isDrawingLocked) return;
-    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
@@ -2018,14 +2033,12 @@
                                                 <button
                                                     className={`tool-btn ${currentTool === 'pen' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('pen')}
-                                                    disabled={isDrawingLocked}
                                                 >
                                                     ✏️
                                                 </button>
                                                 <button
                                                     className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('eraser')}
-                                                    disabled={isDrawingLocked}
                                                 >
                                                     🧹
                                                 </button>
@@ -2041,7 +2054,7 @@
                                                         className={`color-btn ${currentColor === color ? 'active' : ''}`}
                                                         style={{ backgroundColor: color }}
                                                         onClick={() => setCurrentColor(color)}
-                                                        disabled={isDrawingLocked || currentTool === 'eraser'}
+                                                        disabled={currentTool === 'eraser'}
                                                     />
                                                 ))}
                                             </div>
@@ -2055,7 +2068,6 @@
                                                         key={size}
                                                         className={`size-btn ${currentSize === size ? 'active' : ''}`}
                                                         onClick={() => setCurrentSize(size)}
-                                                        disabled={isDrawingLocked}
                                                     >
                                                         <div
                                                             className="size-dot"
@@ -2070,7 +2082,6 @@
                                             <button
                                                 className="action-btn btn-danger"
                                                 onClick={clearCanvas}
-                                                disabled={isDrawingLocked}
                                             >
                                                 Очистити
                                             </button>
@@ -2099,6 +2110,18 @@
                                                     >
                                                         Завершити раунд
                                                     </button>
+
+                                                    <div style={{
+                                                        marginTop: '8px',
+                                                        fontSize: '0.75em',
+                                                        color: '#666',
+                                                        textAlign: 'center',
+                                                        padding: '5px',
+                                                        background: '#f0f0f0',
+                                                        borderRadius: '5px'
+                                                    }}>
+                                                        {guessingProgress.finished}/{guessingProgress.total} гравців завершили
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -2116,14 +2139,7 @@
                                     
                                     {/* Мій канвас */}
                                     <div className="my-canvas-wrapper">
-                                        <div className={`canvas-container ${isDrawingLocked ? 'locked' : ''}`}>
-                                            {isDrawingLocked && (
-                                                <div className="canvas-lock-overlay">
-                                                    <div className="lock-message">
-                                                        Малюнок заблоковано
-                                                    </div>
-                                                </div>
-                                            )}
+                                        <div className="canvas-container">
                                             <canvas
                                                 ref={canvasRef}
                                                 width={640}
@@ -2135,8 +2151,8 @@
                                                 onTouchStart={startDrawing}
                                                 onTouchMove={draw}
                                                 onTouchEnd={stopDrawing}
-                                                style={{ 
-                                                    cursor: isDrawingLocked ? 'not-allowed' : currentTool === 'eraser' ? 'grab' : 'crosshair',
+                                                style={{
+                                                    cursor: currentTool === 'eraser' ? 'grab' : 'crosshair',
                                                     touchAction: 'none'
                                                 }}
                                             />
