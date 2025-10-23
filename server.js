@@ -317,7 +317,7 @@ class GameRoom {
     return true;
   }
 
-  makeGuess(guesserId, targetId, number) {
+  makeGuess(guesserId, targetId, letter, number) {
     // Перевіряємо чи не себе відгадує
     if (guesserId === targetId) return false;
 
@@ -333,11 +333,13 @@ class GameRoom {
     const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
     if (usedNumbers.has(number)) return false;
 
-    // Перевіряємо правильність
-    const correct = this.roundData.assignments.get(targetId).number === number;
+    // ВИПРАВЛЕНО: Перевіряємо правильність (і букву, і номер)
+    const targetAssignment = this.roundData.assignments.get(targetId);
+    const correct = targetAssignment.letter === letter && targetAssignment.number === number;
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
+      letter,
       number,
       time: Date.now(),
       correct
@@ -562,11 +564,11 @@ io.on('connection', (socket) => {
   });
 
   // Здогадка
-  socket.on('make_guess', ({ targetId, number }) => {
+  socket.on('make_guess', ({ targetId, letter, number }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
 
-    const result = room.makeGuess(currentPlayerId, targetId, number);
+    const result = room.makeGuess(currentPlayerId, targetId, letter, number);
 
     if (result && result.success) {
       // ВИПРАВЛЕНО: Додаємо correct до відповіді (тільки для гравця що відгадував)

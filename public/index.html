@@ -1265,9 +1265,9 @@
                 }
             };
 
-            const makeGuess = (targetId, number) => {
+            const makeGuess = (targetId, letter, number) => {
                 if (socket && !myGuesses[targetId] && !usedNumbers.has(number)) {
-                    socket.emit('make_guess', { targetId, number });
+                    socket.emit('make_guess', { targetId, letter, number });
                 }
             };
 
@@ -1827,7 +1827,7 @@
                 }));
 
                 // Відправляємо на сервер
-                makeGuess(targetPlayerId, wordData.number);
+                makeGuess(targetPlayerId, wordData.letter, wordData.number);
 
                 // Скидаємо селекти
                 setSelectedWord(null);
