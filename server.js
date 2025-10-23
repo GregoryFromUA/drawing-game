@@ -23,7 +23,7 @@ app.use(express.static('public'));
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 12;
-const SCORE_SEQUENCE = [4, 3, 3, 2, 2, 2, 1, 1];
+const SCORE_SEQUENCE = [6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1];
 
 // Генерація коду кімнати
 function generateRoomCode() {
@@ -766,7 +766,7 @@ setInterval(() => {
   if (global.gc) {
     global.gc();
   }
-}, 5 * 60 * 1000); // 5 хвилин
+}, 60 * 60 * 1000); // 60 хвилин
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
