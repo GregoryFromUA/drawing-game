@@ -109,10 +109,10 @@ class GameRoom {
     const player = this.players.get(id);
     if (player) {
       player.connected = false;
-      
+
       // ВИПРАВЛЕНО: Очищаємо дані відключеного гравця
       this.drawingRateLimit.delete(id);
-      this.readyPlayers.delete(id);
+      // ВИПРАВЛЕНО: НЕ видаляємо з readyPlayers щоб зберегти статус готовності при reconnect
 
       // Видаляємо малюнки відключеного гравця для економії пам'яті
       if (this.state === 'playing' && this.drawings.has(id)) {
@@ -477,12 +477,34 @@ io.on('connection', (socket) => {
     playerRooms.set(currentPlayerId, roomCode);
     
     socket.join(roomCode);
-    socket.emit('joined_room', { 
-      roomCode, 
+    socket.emit('joined_room', {
+      roomCode,
       playerId: currentPlayerId,
-      state: room.getState() 
+      state: room.getState()
     });
-    
+
+    // ВИПРАВЛЕНО: Якщо reconnect під час гри - відправляємо roundData
+    if (playerId && room.players.has(playerId) && room.state === 'playing' && room.roundData) {
+      const assignment = room.roundData.assignments.get(currentPlayerId);
+      socket.emit('round_started', {
+        round: room.currentRound,
+        wordSet: room.roundData.wordSet,
+        personalAssignment: assignment,
+        players: Array.from(room.players.values()),
+        isReconnect: true // НОВЕ: Флаг що це reconnect
+      });
+
+      // НОВЕ: Відправляємо поточні малюнки всіх гравців
+      for (let [drawerId, strokes] of room.drawings) {
+        if (strokes && strokes.length > 0) {
+          socket.emit('drawing_updated', {
+            playerId: drawerId,
+            strokes: strokes
+          });
+        }
+      }
+    }
+
     io.to(roomCode).emit('player_joined', room.getState());
   });
   

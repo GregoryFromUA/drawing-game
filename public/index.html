@@ -1120,7 +1120,11 @@
                     setRoomCode(roomCode);
                     setPlayerId(playerId);
                     setRoomData(state);
-                    setGameState('lobby');
+                    // ВИПРАВЛЕНО: Використовуємо state з сервера замість хардкодного 'lobby'
+                    // Якщо гра йде - чекаємо на round_started який прийде слідом
+                    if (state.state !== 'playing') {
+                        setGameState(state.state);
+                    }
                     setIsHost(state.hostId === playerId);
                     localStorage.setItem('gameSession', JSON.stringify({ roomCode, playerId, playerName }));
                 });
@@ -1136,10 +1140,13 @@
                 newSocket.on('round_started', (data) => {
                     setRoundData(data);
                     setGameState('playing');
-                    setDrawings({});
-                    setMyGuesses({});
-                    setUsedNumbers(new Set());
-                    setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
+                    // ВИПРАВЛЕНО: Не очищаємо дані якщо це reconnect
+                    if (!data.isReconnect) {
+                        setDrawings({});
+                        setMyGuesses({});
+                        setUsedNumbers(new Set());
+                        setMyGuessResults({});
+                    }
                     setGuessingProgress({ finished: 0, total: data.players?.length || 0 });
                 });
                 
