@@ -1632,6 +1632,7 @@
             const [currentTool, setCurrentTool] = useState('pen');
             const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
+            const [hasFinishedGuessing, setHasFinishedGuessing] = useState(false);
 
             // Нове: Drag-and-Drop та Select стан
             const [selectedWord, setSelectedWord] = useState(null); // {letter, number, word}
@@ -1698,7 +1699,12 @@
         ctx.fillRect(0, 0, 640, 480);
     }
 }, []);
-            
+
+            // Reset hasFinishedGuessing when round changes
+            useEffect(() => {
+                setHasFinishedGuessing(false);
+            }, [roundData?.round]);
+
             const startDrawing = (e) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
@@ -1820,6 +1826,13 @@
         socket.emit('clear_canvas');
     }
 };
+
+            const handleFinishGuessing = () => {
+                if (socket && !hasFinishedGuessing) {
+                    socket.emit('finish_guessing');
+                    setHasFinishedGuessing(true);
+                }
+            };
 
             // Обробники для нової системи відгадування
             const createGuess = (wordData, targetPlayerId) => {
@@ -2079,6 +2092,23 @@
                                             >
                                                 Очистити
                                             </button>
+
+                                            {/* Кнопка завершення відгадування (для всіх гравців) */}
+                                            {!isHost && (
+                                                <button
+                                                    className="action-btn btn-primary"
+                                                    onClick={handleFinishGuessing}
+                                                    disabled={hasFinishedGuessing}
+                                                    title={hasFinishedGuessing ? "Ви вже позначили, що завершили" : "Натисніть, коли завершите відгадувати всі малюнки"}
+                                                    style={{
+                                                        marginTop: '10px',
+                                                        opacity: hasFinishedGuessing ? 0.6 : 1,
+                                                        cursor: hasFinishedGuessing ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    {hasFinishedGuessing ? '✓ Завершено' : 'Завершити відгадування'}
+                                                </button>
+                                            )}
 
                                             {/* Кнопка завершення раунду (тільки для хоста) */}
                                             {isHost && otherPlayers.length > 0 && (
