@@ -23,7 +23,7 @@ app.use(express.static('public'));
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 12;
-const SCORE_SEQUENCE = [4, 3, 3, 2, 2, 2, 1, 1];
+const SCORE_SEQUENCE = [6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1];
 
 // Генерація коду кімнати
 function generateRoomCode() {
@@ -797,7 +797,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// НОВЕ: Періодичне очищення пам'яті кожні 5 хвилин
+// НОВЕ: Періодичне очищення пам'яті кожну 1 годину.
 setInterval(() => {
   let roomsCleaned = 0;
   let playersRemoved = 0;
@@ -848,33 +848,9 @@ setInterval(() => {
     global.gc();
     console.log('[GC] Manual garbage collection triggered');
   }
-}, 5 * 60 * 1000); // 5 хвилин
+}, 60 * 60 * 1000); // 1 година
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-// package.json для сервера:
-/*
-{
-  "name": "drawing-game-server",
-  "version": "1.0.0",
-  "description": "Multiplayer drawing game server",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "start:gc": "node --expose-gc server.js",
-    "dev": "nodemon server.js",
-    "dev:gc": "nodemon --expose-gc server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.6.1",
-    "cors": "^2.8.5"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.22"
-  }
-}
-*/
