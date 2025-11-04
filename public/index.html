@@ -1799,13 +1799,12 @@
 
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
-                    // Используем clearRect вместо destination-out для надежности
-                    ctx.save();
+                    // Рисуем белым цветом вместо стирания
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = 'rgb(255, 255, 255)';
                     ctx.beginPath();
                     ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
-                    ctx.clip();
-                    ctx.clearRect(x - currentSize, y - currentSize, currentSize * 2, currentSize * 2);
-                    ctx.restore();
+                    ctx.fill();
                 } else {
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.fillStyle = currentColor;
@@ -1840,35 +1839,22 @@
                 const ctx = ctxRef.current; // Используем кешированный контекст
 
                 // Малювання лінії
+                ctx.globalCompositeOperation = 'source-over';
+
                 if (currentTool === 'eraser') {
-                    // Используем clearRect для линий ластика
-                    const dx = x - lastXRef.current;
-                    const dy = y - lastYRef.current;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    const steps = Math.max(1, Math.ceil(distance / (currentSize / 2)));
-
-                    for (let i = 0; i <= steps; i++) {
-                        const t = i / steps;
-                        const cx = lastXRef.current + dx * t;
-                        const cy = lastYRef.current + dy * t;
-
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, currentSize, 0, 2 * Math.PI);
-                        ctx.clip();
-                        ctx.clearRect(cx - currentSize, cy - currentSize, currentSize * 2, currentSize * 2);
-                        ctx.restore();
-                    }
+                    // Рисуем белым цветом
+                    ctx.strokeStyle = 'rgb(255, 255, 255)';
+                    ctx.lineWidth = currentSize * 2;
                 } else {
                     // Обычное рисование кистью
-                    ctx.globalCompositeOperation = 'source-over';
                     ctx.strokeStyle = currentColor;
                     ctx.lineWidth = currentSize;
-                    ctx.beginPath();
-                    ctx.moveTo(lastXRef.current, lastYRef.current);
-                    ctx.lineTo(x, y);
-                    ctx.stroke();
                 }
+
+                ctx.beginPath();
+                ctx.moveTo(lastXRef.current, lastYRef.current);
+                ctx.lineTo(x, y);
+                ctx.stroke();
 
                 lastXRef.current = x;
                 lastYRef.current = y;
