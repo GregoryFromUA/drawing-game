@@ -622,6 +622,21 @@
             border-color: #4caf50;
             background: #f1f8e9;
         }
+
+        /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
+        .drawing-card.correct {
+            border: 3px solid #4caf50 !important;
+            background: #f1f8e9 !important;
+            box-shadow: 0 0 12px rgba(76, 175, 80, 0.6) !important;
+            cursor: not-allowed;
+        }
+
+        .drawing-card.incorrect {
+            border: 3px solid #f44336 !important;
+            background: #ffebee !important;
+            box-shadow: 0 0 12px rgba(244, 67, 54, 0.6) !important;
+            cursor: not-allowed;
+        }
         
         .drawing-player-name {
             text-align: center;
@@ -2160,6 +2175,7 @@
                                                 guess={myGuesses[player.id]}
                                                 // Нова система відгадування
                                                 wordAssignment={wordAssignments[player.id]}
+                                                guessResult={myGuessResults[player.id]}
                                                 isSelected={selectedPlayer === player.id}
                                                 isHovered={hoveredPlayer === player.id}
                                                 onClick={() => handlePlayerClick(player.id)}
@@ -2275,6 +2291,7 @@
             guess,
             // Нова система відгадування
             wordAssignment,
+            guessResult,
             isSelected,
             isHovered,
             onClick,
@@ -2360,12 +2377,15 @@
         }
     });
 }, [drawing, canvasSize]);
-            
+
             const hasAssignment = wordAssignment !== undefined;
+            // НОВЕ: Визначаємо чи відповідь правильна/неправильна
+            const isCorrect = guessResult?.correct === true;
+            const isIncorrect = guessResult?.correct === false;
 
             return (
                 <div
-                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''}`}
+                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                     data-player-id={player.id}
                     onClick={onClick}
                     onDragOver={onDragOver}
