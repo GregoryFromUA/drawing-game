@@ -1682,6 +1682,10 @@
             const strokeBufferRef = useRef([]);
             const lastXRef = useRef(null);
             const lastYRef = useRef(null);
+
+            // Оптимизация: кешируем контекст и размеры
+            const ctxRef = useRef(null);
+            const canvasBoundsRef = useRef(null);
             
             const colors = [
                 '#000000', '#FF0000', '#00FF00', '#0000FF', 
@@ -1737,120 +1741,128 @@
             }, [currentColor, currentSize, currentTool]);
             
             // Ініціалізація canvas з підтримкою High DPI
-			useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        
-        // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
-        canvas.width = 640;
-        canvas.height = 480;
-        
-        // CSS розмір для відображення
-        canvas.style.width = '640px';
-        canvas.style.height = '480px';
-        
-        // Налаштування контексту
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        // Білий фон
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, 640, 480);
-    }
-}, []);
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    // Оптимизация: alpha: false для лучшей производительности
+                    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+                    ctxRef.current = ctx;
+
+                    // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
+                    canvas.width = 640;
+                    canvas.height = 480;
+
+                    // CSS розмір для відображення
+                    canvas.style.width = '640px';
+                    canvas.style.height = '480px';
+
+                    // Налаштування контексту
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+
+                    // Білий фон
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, 640, 480);
+
+                    // Кешируем размеры canvas
+                    const updateBounds = () => {
+                        canvasBoundsRef.current = canvas.getBoundingClientRect();
+                    };
+                    updateBounds();
+
+                    // Обновляем при resize окна
+                    window.addEventListener('resize', updateBounds);
+                    return () => window.removeEventListener('resize', updateBounds);
+                }
+            }, []);
             
             const startDrawing = (e) => {
-    if (isDrawingLocked) return;
+                if (isDrawingLocked || !ctxRef.current || !canvasBoundsRef.current) return;
 
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    // ВИПРАВЛЕНО: Проста нормалізація без DPR
-    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
-    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
-    
-    lastXRef.current = x;
-    lastYRef.current = y;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Малювання початкової точки
-    if (currentTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath();
-        ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
-        ctx.fill();
-    } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = currentColor;
-        ctx.beginPath();
-        ctx.arc(x, y, currentSize / 2, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-                
-               const strokeData = {
-        x: x / 640,  // Нормалізація до діапазону 0-1
-        y: y / 480,  // Нормалізація до діапазону 0-1
-        color: currentColor,
-        size: currentSize,
-        tool: currentTool,
-        type: 'start'
-    };
+                setIsDrawing(true);
+                const rect = canvasBoundsRef.current; // Используем кешированное значение
 
-               strokeBufferRef.current.push(strokeData);
+                // ВИПРАВЛЕНО: Проста нормалізація без DPR
+                const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
+                const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
+
+                lastXRef.current = x;
+                lastYRef.current = y;
+
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Малювання початкової точки
+                if (currentTool === 'eraser') {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.beginPath();
+                    ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = currentColor;
+                    ctx.beginPath();
+                    ctx.arc(x, y, currentSize / 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+
+                const strokeData = {
+                    x: x / 640,  // Нормалізація до діапазону 0-1
+                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    color: currentColor,
+                    size: currentSize,
+                    tool: currentTool,
+                    type: 'start'
+                };
+
+                strokeBufferRef.current.push(strokeData);
             };
             
             const draw = useCallback((e) => {
-    if (!isDrawing || isDrawingLocked || lastXRef.current === null) return;
-    
-    e.preventDefault();
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    
-    // ВИПРАВЛЕНО: Проста нормалізація без DPR
-    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
-    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Налаштування інструменту
-    if (currentTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = currentSize * 2;
-    } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = currentSize;
-    }
-    
-    // Малювання лінії
-    ctx.beginPath();
-    ctx.moveTo(lastXRef.current, lastYRef.current);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    
-    lastXRef.current = x;
-    lastYRef.current = y;
-    
-    // ВИПРАВЛЕНО: Відправляємо нормалізовані координати (0-1)
-    const strokeData = {
-        x: x / 640,  // Нормалізація до діапазону 0-1
-        y: y / 480,  // Нормалізація до діапазону 0-1
-        color: currentColor,
-        size: currentSize,
-        tool: currentTool,
-        type: 'draw'
-    };
+                if (!isDrawing || isDrawingLocked || lastXRef.current === null || !ctxRef.current || !canvasBoundsRef.current) return;
 
-               strokeBufferRef.current.push(strokeData);
-}, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
+                e.preventDefault();
+
+                const rect = canvasBoundsRef.current; // Используем кешированное значение
+
+                // ВИПРАВЛЕНО: Проста нормалізація без DPR
+                const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
+                const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
+
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Налаштування інструменту
+                if (currentTool === 'eraser') {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.lineWidth = currentSize * 2;
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineWidth = currentSize;
+                }
+
+                // Малювання лінії
+                ctx.beginPath();
+                ctx.moveTo(lastXRef.current, lastYRef.current);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                lastXRef.current = x;
+                lastYRef.current = y;
+
+                // ВИПРАВЛЕНО: Відправляємо нормалізовані координати (0-1)
+                const strokeData = {
+                    x: x / 640,  // Нормалізація до діапазону 0-1
+                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    color: currentColor,
+                    size: currentSize,
+                    tool: currentTool,
+                    type: 'draw'
+                };
+
+                strokeBufferRef.current.push(strokeData);
+            }, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
             
             const stopDrawing = () => {
                 if (isDrawing) {
@@ -1865,24 +1877,23 @@
             };
             
             const clearCanvas = () => {
-    if (isDrawingLocked) return;
+                if (isDrawingLocked || !ctxRef.current) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+                const ctx = ctxRef.current; // Используем кешированный контекст
 
-    // Скидаємо всі налаштування
-    ctx.globalCompositeOperation = 'source-over';
+                // Скидаємо всі налаштування
+                ctx.globalCompositeOperation = 'source-over';
 
-    // Заповнюємо білим кольором
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 640, 480);
+                // Заповнюємо білим кольором
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, 640, 480);
 
-    strokeBufferRef.current = [];
+                strokeBufferRef.current = [];
 
-    if (socket) {
-        socket.emit('clear_canvas');
-    }
-};
+                if (socket) {
+                    socket.emit('clear_canvas');
+                }
+            };
 
             // Обробники для нової системи відгадування
             const createGuess = (wordData, targetPlayerId) => {
@@ -2388,82 +2399,108 @@
         }) {
             const canvasRef = useRef(null);
             const [canvasSize] = useState({ width: 240, height: 180 });
-            
+            const lastDrawnIndexRef = useRef(0); // Индекс последнего отрисованного stroke
+            const isDrawingPathRef = useRef(false);
+            const lastXRef = useRef(null);
+            const lastYRef = useRef(null);
+
+            // Инициализация canvas только один раз
             useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // ВИПРАВЛЕНО: Використовуємо фіксовані розміри
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
-    
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    // Білий фон
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-    
-    let isDrawingPath = false;
-    let lastX = null;
-    let lastY = null;
-                
-                drawing.forEach(stroke => {
-        if (stroke.type === 'start') {
-            // ВИПРАВЛЕНО: Координати вже нормалізовані (0-1)
-            const x = stroke.x * canvasSize.width;
-            const y = stroke.y * canvasSize.height;
-            
-            if (stroke.tool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.beginPath();
-                ctx.arc(x, y, stroke.size * (canvasSize.width / 640), 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.globalCompositeOperation = 'source-over';
-            } else {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.fillStyle = stroke.color;
-                ctx.beginPath();
-                ctx.arc(x, y, (stroke.size * (canvasSize.width / 640)) / 2, 0, 2 * Math.PI);
-                ctx.fill();
-            }
-            
-            lastX = x;
-            lastY = y;
-            isDrawingPath = true;
-                    } else if (stroke.type === 'draw' && isDrawingPath && lastX !== null) {
-            // ВИПРАВЛЕНО: Координати вже нормалізовані (0-1)
-            const x = stroke.x * canvasSize.width;
-            const y = stroke.y * canvasSize.height;
-            
-            if (stroke.tool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.lineWidth = stroke.size * 2 * (canvasSize.width / 640);
-            } else {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.strokeStyle = stroke.color;
-                ctx.lineWidth = stroke.size * (canvasSize.width / 640);
-            }
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            lastX = x;
-            lastY = y;
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d', { alpha: false }); // Оптимизация
+
+                canvas.width = canvasSize.width;
+                canvas.height = canvasSize.height;
+
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // Білий фон
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+                lastDrawnIndexRef.current = 0;
+            }, [canvasSize]); // Только при изменении размера!
+
+            // Инкрементальная отрисовка - только новые strokes
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d', { alpha: false });
+
+                // Проверяем на clear_canvas событие
+                if (drawing.length === 0 && lastDrawnIndexRef.current > 0) {
+                    // Canvas был очищен
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+                    lastDrawnIndexRef.current = 0;
+                    isDrawingPathRef.current = false;
+                    lastXRef.current = null;
+                    lastYRef.current = null;
+                    return;
+                }
+
+                // Рисуем только новые strokes начиная с lastDrawnIndex
+                for (let i = lastDrawnIndexRef.current; i < drawing.length; i++) {
+                    const stroke = drawing[i];
+
+                    if (stroke.type === 'start') {
+                        const x = stroke.x * canvasSize.width;
+                        const y = stroke.y * canvasSize.height;
+
+                        if (stroke.tool === 'eraser') {
+                            ctx.globalCompositeOperation = 'destination-out';
+                            ctx.beginPath();
+                            ctx.arc(x, y, stroke.size * (canvasSize.width / 640), 0, 2 * Math.PI);
+                            ctx.fill();
+                            ctx.globalCompositeOperation = 'source-over';
+                        } else {
+                            ctx.globalCompositeOperation = 'source-over';
+                            ctx.fillStyle = stroke.color;
+                            ctx.beginPath();
+                            ctx.arc(x, y, (stroke.size * (canvasSize.width / 640)) / 2, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+
+                        lastXRef.current = x;
+                        lastYRef.current = y;
+                        isDrawingPathRef.current = true;
+                    } else if (stroke.type === 'draw' && isDrawingPathRef.current && lastXRef.current !== null) {
+                        const x = stroke.x * canvasSize.width;
+                        const y = stroke.y * canvasSize.height;
+
+                        if (stroke.tool === 'eraser') {
+                            ctx.globalCompositeOperation = 'destination-out';
+                            ctx.lineWidth = stroke.size * 2 * (canvasSize.width / 640);
+                        } else {
+                            ctx.globalCompositeOperation = 'source-over';
+                            ctx.strokeStyle = stroke.color;
+                            ctx.lineWidth = stroke.size * (canvasSize.width / 640);
+                        }
+
+                        ctx.beginPath();
+                        ctx.moveTo(lastXRef.current, lastYRef.current);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+
+                        lastXRef.current = x;
+                        lastYRef.current = y;
                     } else if (stroke.type === 'end') {
-            isDrawingPath = false;
-            lastX = null;
-            lastY = null;
-            ctx.globalCompositeOperation = 'source-over';
-        }
-    });
-}, [drawing, canvasSize]);
+                        isDrawingPathRef.current = false;
+                        lastXRef.current = null;
+                        lastYRef.current = null;
+                        ctx.globalCompositeOperation = 'source-over';
+                    }
+                }
+
+                // Обновляем индекс последнего отрисованного stroke
+                lastDrawnIndexRef.current = drawing.length;
+            }, [drawing, canvasSize]);
 
             const hasAssignment = wordAssignment !== undefined;
             // НОВЕ: Визначаємо чи відповідь правильна/неправильна
