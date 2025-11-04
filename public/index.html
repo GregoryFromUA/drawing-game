@@ -1744,8 +1744,8 @@
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (canvas) {
-                    // Оптимизация: alpha: false для лучшей производительности
-                    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+                    // ВАЖНО: НЕ используем alpha: false, т.к. ластик требует альфа-канал!
+                    const ctx = canvas.getContext('2d', { desynchronized: true });
                     ctxRef.current = ctx;
 
                     // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
@@ -2409,7 +2409,8 @@
                 const canvas = canvasRef.current;
                 if (!canvas) return;
 
-                const ctx = canvas.getContext('2d', { alpha: false }); // Оптимизация
+                // ВАЖНО: НЕ используем alpha: false - ластик требует альфа-канал!
+                const ctx = canvas.getContext('2d');
 
                 canvas.width = canvasSize.width;
                 canvas.height = canvasSize.height;
@@ -2431,7 +2432,7 @@
                 const canvas = canvasRef.current;
                 if (!canvas) return;
 
-                const ctx = canvas.getContext('2d', { alpha: false });
+                const ctx = canvas.getContext('2d');
 
                 // Проверяем на clear_canvas событие
                 if (drawing.length === 0 && lastDrawnIndexRef.current > 0) {
