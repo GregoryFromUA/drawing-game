@@ -1666,7 +1666,6 @@
             const [currentColor, setCurrentColor] = useState('#000000');
             const [currentSize, setCurrentSize] = useState(5);
             const [currentTool, setCurrentTool] = useState('pen');
-            const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
 
             // Нове: Drag-and-Drop та Select стан
@@ -1676,9 +1675,9 @@
             const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
             const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
 
-            // Custom cursor state
-            const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
-            const [showCustomCursor, setShowCustomCursor] = useState(false);
+            // Custom cursor refs (для производительности - без ререндеров)
+            const customCursorRef = useRef(null);
+            const showCustomCursorRef = useRef(false);
 
             const strokeBufferRef = useRef([]);
             const lastXRef = useRef(null);
@@ -1695,23 +1694,47 @@
             // Оптимізована синхронізація малювання
             useEffect(() => {
                 let animationFrameId;
-                
+
                 const sendStrokes = () => {
                     if (strokeBufferRef.current.length > 0 && socket) {
-                        socket.emit('drawing_update', { 
-                            strokes: strokeBufferRef.current 
+                        socket.emit('drawing_update', {
+                            strokes: strokeBufferRef.current
                         });
                         strokeBufferRef.current = [];
                     }
                     animationFrameId = requestAnimationFrame(sendStrokes);
                 };
-                
+
                 animationFrameId = requestAnimationFrame(sendStrokes);
-                
+
                 return () => {
                     cancelAnimationFrame(animationFrameId);
                 };
             }, [socket]);
+
+            // Оптимізоване оновлення cursor через пряме DOM маніпулювання
+            const updateCustomCursor = useCallback((x, y) => {
+                if (!customCursorRef.current) return;
+
+                customCursorRef.current.style.left = `${x}px`;
+                customCursorRef.current.style.top = `${y}px`;
+
+                // Обновляем размер и цвет
+                const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
+                customCursorRef.current.style.width = `${size}px`;
+                customCursorRef.current.style.height = `${size}px`;
+                customCursorRef.current.style.backgroundColor =
+                    currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+
+                // Обновляем класс
+                if (currentTool === 'eraser') {
+                    customCursorRef.current.classList.add('eraser-cursor');
+                    customCursorRef.current.classList.remove('pen-cursor');
+                } else {
+                    customCursorRef.current.classList.add('pen-cursor');
+                    customCursorRef.current.classList.remove('eraser-cursor');
+                }
+            }, [currentColor, currentSize, currentTool]);
             
             // Ініціалізація canvas з підтримкою High DPI
 			useEffect(() => {
@@ -1777,9 +1800,8 @@
         tool: currentTool,
         type: 'start'
     };
-                
+
                strokeBufferRef.current.push(strokeData);
-				setMyDrawingData(prev => [...prev, strokeData]);
             };
             
             const draw = useCallback((e) => {
@@ -1826,9 +1848,8 @@
         tool: currentTool,
         type: 'draw'
     };
-                
+
                strokeBufferRef.current.push(strokeData);
-    setMyDrawingData(prev => [...prev, strokeData]);
 }, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
             
             const stopDrawing = () => {
@@ -1840,26 +1861,24 @@
                         type: 'end'
                     };
                     strokeBufferRef.current.push(strokeData);
-                    setMyDrawingData(prev => [...prev, strokeData]);
                 }
             };
             
             const clearCanvas = () => {
     if (isDrawingLocked) return;
-    
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     // Скидаємо всі налаштування
     ctx.globalCompositeOperation = 'source-over';
-    
+
     // Заповнюємо білим кольором
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, 640, 480);
-    
-    setMyDrawingData([]);
+
     strokeBufferRef.current = [];
-    
+
     if (socket) {
         socket.emit('clear_canvas');
     }
@@ -2184,18 +2203,22 @@
                                                 onMouseDown={startDrawing}
                                                 onMouseMove={(e) => {
                                                     draw(e);
-                                                    // Обновляем позицию custom cursor
-                                                    setCursorPosition({ x: e.clientX, y: e.clientY });
+                                                    // Обновляем позицию custom cursor без ререндера
+                                                    updateCustomCursor(e.clientX, e.clientY);
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    if (!isDrawingLocked) {
-                                                        setShowCustomCursor(true);
-                                                        setCursorPosition({ x: e.clientX, y: e.clientY });
+                                                    if (!isDrawingLocked && customCursorRef.current) {
+                                                        showCustomCursorRef.current = true;
+                                                        customCursorRef.current.style.display = 'block';
+                                                        updateCustomCursor(e.clientX, e.clientY);
                                                     }
                                                 }}
                                                 onMouseLeave={() => {
                                                     stopDrawing();
-                                                    setShowCustomCursor(false);
+                                                    if (customCursorRef.current) {
+                                                        showCustomCursorRef.current = false;
+                                                        customCursorRef.current.style.display = 'none';
+                                                    }
                                                 }}
                                                 onMouseUp={stopDrawing}
                                                 onTouchStart={startDrawing}
@@ -2329,16 +2352,18 @@
                         <ScoreRulesModal onClose={() => setShowScoreRules(false)} />
                     )}
 
-                    {/* Custom cursor */}
-                    {showCustomCursor && !isDrawingLocked && (
+                    {/* Custom cursor - всегда в DOM, обновляется напрямую через ref */}
+                    {!isDrawingLocked && (
                         <div
-                            className={`custom-cursor ${currentTool === 'eraser' ? 'eraser-cursor' : 'pen-cursor'}`}
+                            ref={customCursorRef}
+                            className="custom-cursor pen-cursor"
                             style={{
-                                left: cursorPosition.x,
-                                top: cursorPosition.y,
-                                width: currentTool === 'eraser' ? currentSize * 2 : currentSize,
-                                height: currentTool === 'eraser' ? currentSize * 2 : currentSize,
-                                backgroundColor: currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor
+                                display: 'none',
+                                left: 0,
+                                top: 0,
+                                width: currentSize,
+                                height: currentSize,
+                                backgroundColor: currentColor
                             }}
                         />
                     )}
