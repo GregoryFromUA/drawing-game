@@ -1796,6 +1796,7 @@
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
                     ctx.globalCompositeOperation = 'destination-out';
+                    ctx.fillStyle = 'rgba(0,0,0,1)'; // Любой непрозрачный цвет для destination-out
                     ctx.beginPath();
                     ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
                     ctx.fill();
@@ -1835,6 +1836,7 @@
                 // Налаштування інструменту
                 if (currentTool === 'eraser') {
                     ctx.globalCompositeOperation = 'destination-out';
+                    ctx.strokeStyle = 'rgba(0,0,0,1)'; // Любой непрозрачный цвет для destination-out
                     ctx.lineWidth = currentSize * 2;
                 } else {
                     ctx.globalCompositeOperation = 'source-over';
@@ -1869,6 +1871,12 @@
                     setIsDrawing(false);
                     lastXRef.current = null;
                     lastYRef.current = null;
+
+                    // Сбрасываем композитную операцию обратно на normal
+                    if (ctxRef.current) {
+                        ctxRef.current.globalCompositeOperation = 'source-over';
+                    }
+
                     const strokeData = {
                         type: 'end'
                     };
