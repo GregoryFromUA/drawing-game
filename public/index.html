@@ -1744,8 +1744,11 @@
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (canvas) {
-                    // ВАЖНО: НЕ используем alpha: false, т.к. ластик требует альфа-канал!
-                    const ctx = canvas.getContext('2d', { desynchronized: true });
+                    // ВАЖНО: willReadFrequently для корректной работы ластика
+                    const ctx = canvas.getContext('2d', {
+                        willReadFrequently: true,
+                        desynchronized: false  // Отключаем для стабильности ластика
+                    });
                     ctxRef.current = ctx;
 
                     // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
@@ -1762,8 +1765,9 @@
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
 
-                    // Білий фон
-                    ctx.fillStyle = 'white';
+                    // Білий фон - ВАЖНО: используем непрозрачный белый
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = 'rgb(255, 255, 255)'; // НЕ rgba!
                     ctx.fillRect(0, 0, 640, 480);
 
                     // Кешируем размеры canvas
@@ -1795,11 +1799,13 @@
 
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
-                    ctx.globalCompositeOperation = 'destination-out';
-                    ctx.fillStyle = 'rgba(0,0,0,1)'; // Любой непрозрачный цвет для destination-out
+                    // Используем clearRect вместо destination-out для надежности
+                    ctx.save();
                     ctx.beginPath();
                     ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
-                    ctx.fill();
+                    ctx.clip();
+                    ctx.clearRect(x - currentSize, y - currentSize, currentSize * 2, currentSize * 2);
+                    ctx.restore();
                 } else {
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.fillStyle = currentColor;
@@ -1833,22 +1839,36 @@
 
                 const ctx = ctxRef.current; // Используем кешированный контекст
 
-                // Налаштування інструменту
+                // Малювання лінії
                 if (currentTool === 'eraser') {
-                    ctx.globalCompositeOperation = 'destination-out';
-                    ctx.strokeStyle = 'rgba(0,0,0,1)'; // Любой непрозрачный цвет для destination-out
-                    ctx.lineWidth = currentSize * 2;
+                    // Используем clearRect для линий ластика
+                    const dx = x - lastXRef.current;
+                    const dy = y - lastYRef.current;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const steps = Math.max(1, Math.ceil(distance / (currentSize / 2)));
+
+                    for (let i = 0; i <= steps; i++) {
+                        const t = i / steps;
+                        const cx = lastXRef.current + dx * t;
+                        const cy = lastYRef.current + dy * t;
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, currentSize, 0, 2 * Math.PI);
+                        ctx.clip();
+                        ctx.clearRect(cx - currentSize, cy - currentSize, currentSize * 2, currentSize * 2);
+                        ctx.restore();
+                    }
                 } else {
+                    // Обычное рисование кистью
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.strokeStyle = currentColor;
                     ctx.lineWidth = currentSize;
+                    ctx.beginPath();
+                    ctx.moveTo(lastXRef.current, lastYRef.current);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
                 }
-
-                // Малювання лінії
-                ctx.beginPath();
-                ctx.moveTo(lastXRef.current, lastYRef.current);
-                ctx.lineTo(x, y);
-                ctx.stroke();
 
                 lastXRef.current = x;
                 lastYRef.current = y;
@@ -1871,11 +1891,6 @@
                     setIsDrawing(false);
                     lastXRef.current = null;
                     lastYRef.current = null;
-
-                    // Сбрасываем композитную операцию обратно на normal
-                    if (ctxRef.current) {
-                        ctxRef.current.globalCompositeOperation = 'source-over';
-                    }
 
                     const strokeData = {
                         type: 'end'
