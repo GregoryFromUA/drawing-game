@@ -1625,6 +1625,214 @@
                 );
             }
 
+            // UNICORN CANVAS: Фаза малювання
+            if (gameState === 'unicorn_drawing') {
+                const canvasRef = useRef(null);
+                const [isDrawing, setIsDrawing] = useState(false);
+                const [currentStroke, setCurrentStroke] = useState([]);
+
+                const currentPlayerId = turnOrder[currentTurnIndex];
+                const isMyTurn = currentPlayerId === playerId;
+                const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
+
+                useEffect(() => {
+                    const canvas = canvasRef.current;
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // Малюємо всі штрихи
+                    sharedDrawing.forEach(stroke => {
+                        if (stroke.type === 'start') {
+                            ctx.beginPath();
+                            ctx.strokeStyle = stroke.color || '#000000';
+                            ctx.lineWidth = 3;
+                            ctx.lineCap = 'round';
+                            ctx.moveTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                        } else if (stroke.type === 'draw') {
+                            ctx.lineTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                            ctx.stroke();
+                        }
+                    });
+                }, [sharedDrawing]);
+
+                const startDrawing = (e) => {
+                    if (!isMyTurn) return;
+
+                    const canvas = canvasRef.current;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / canvas.width;
+                    const y = (e.clientY - rect.top) / canvas.height;
+
+                    setIsDrawing(true);
+                    const stroke = { type: 'start', x, y };
+                    setCurrentStroke([stroke]);
+
+                    if (socket) {
+                        socket.emit('unicorn_drawing_stroke', { stroke });
+                    }
+                };
+
+                const draw = (e) => {
+                    if (!isMyTurn || !isDrawing) return;
+
+                    const canvas = canvasRef.current;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / canvas.width;
+                    const y = (e.clientY - rect.top) / canvas.height;
+
+                    const stroke = { type: 'draw', x, y };
+                    setCurrentStroke(prev => [...prev, stroke]);
+
+                    if (socket) {
+                        socket.emit('unicorn_drawing_stroke', { stroke });
+                    }
+                };
+
+                const stopDrawing = () => {
+                    if (!isMyTurn || !isDrawing) return;
+
+                    setIsDrawing(false);
+                    setCurrentStroke([]);
+
+                    // Хід завершено - відправляємо на сервер
+                    if (socket) {
+                        socket.emit('stroke_finished');
+                    }
+                };
+
+                return (
+                    <div className="game-container" style={{ padding: '20px' }}>
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                            {/* Ліва панель: Картка та порядок гравців */}
+                            <div style={{ width: '250px' }}>
+                                <div className="player-card" style={{
+                                    padding: '20px',
+                                    background: '#f0f0f0',
+                                    borderRadius: '10px',
+                                    marginBottom: '20px'
+                                }}>
+                                    <h3>Ваша картка</h3>
+                                    <div style={{ fontSize: '18px', marginTop: '10px' }}>
+                                        <strong>Категорія:</strong> {currentTheme}
+                                    </div>
+                                    <div style={{
+                                        fontSize: '32px',
+                                        fontWeight: 'bold',
+                                        marginTop: '15px',
+                                        padding: '20px',
+                                        background: playerCard?.isFake ? '#ffcccc' : '#ccffcc',
+                                        borderRadius: '5px',
+                                        textAlign: 'center'
+                                    }}>
+                                        {playerCard?.word}
+                                    </div>
+                                </div>
+
+                                <div className="turn-order" style={{
+                                    padding: '15px',
+                                    background: '#f9f9f9',
+                                    borderRadius: '10px'
+                                }}>
+                                    <h3>Порядок ходів (Раунд {currentDrawingRound}/2)</h3>
+                                    {turnOrder.map((pid, index) => {
+                                        const player = roomData?.players?.find(p => p.id === pid);
+                                        const isCurrent = index === currentTurnIndex;
+                                        const isDone = index < currentTurnIndex || (currentDrawingRound === 2 && index < currentTurnIndex);
+
+                                        return (
+                                            <div key={pid} style={{
+                                                padding: '8px',
+                                                marginTop: '5px',
+                                                background: isCurrent ? '#4CAF50' : (isDone ? '#e0e0e0' : 'white'),
+                                                color: isCurrent ? 'white' : 'black',
+                                                borderRadius: '5px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px'
+                                            }}>
+                                                <div style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    borderRadius: '50%',
+                                                    background: player?.color || '#ccc'
+                                                }}></div>
+                                                <span style={{ fontWeight: isCurrent ? 'bold' : 'normal' }}>
+                                                    {player?.name || 'Гравець'}
+                                                    {pid === playerId && ' (Ви)'}
+                                                    {isCurrent && ' 🎨'}
+                                                    {isDone && ' ✓'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                                    <h3>{isMyTurn ? 'Ваш хід!' : `Малює: ${currentPlayer?.name}`}</h3>
+                                    <div style={{ fontSize: '24px', color: '#666' }}>⏱️ 60 сек</div>
+                                </div>
+                            </div>
+
+                            {/* Центр: Спільний канвас */}
+                            <div style={{ flex: 1 }}>
+                                <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>
+                                    Спільний малюнок
+                                </h2>
+                                <canvas
+                                    ref={canvasRef}
+                                    width={800}
+                                    height={600}
+                                    onMouseDown={startDrawing}
+                                    onMouseMove={draw}
+                                    onMouseUp={stopDrawing}
+                                    onMouseLeave={stopDrawing}
+                                    style={{
+                                        border: '2px solid #333',
+                                        borderRadius: '10px',
+                                        background: 'white',
+                                        cursor: isMyTurn ? 'crosshair' : 'not-allowed',
+                                        display: 'block',
+                                        margin: '0 auto'
+                                    }}
+                                />
+                                <div style={{ textAlign: 'center', marginTop: '10px', color: '#666' }}>
+                                    {isMyTurn ? 'Намалюйте одну лінію (відпустіть мишу щоб завершити хід)' : 'Чекайте свого ходу...'}
+                                </div>
+                            </div>
+
+                            {/* Права панель: Очки */}
+                            <div style={{ width: '200px' }}>
+                                <div style={{
+                                    padding: '15px',
+                                    background: '#f9f9f9',
+                                    borderRadius: '10px'
+                                }}>
+                                    <h3>Рахунок</h3>
+                                    {roomData?.players?.map(player => (
+                                        <div key={player.id} style={{
+                                            padding: '8px',
+                                            marginTop: '5px',
+                                            background: 'white',
+                                            borderRadius: '5px'
+                                        }}>
+                                            <div style={{ fontWeight: 'bold' }}>
+                                                {player.name}
+                                                {player.id === playerId && ' (Ви)'}
+                                            </div>
+                                            <div style={{ fontSize: '20px', color: '#4CAF50' }}>
+                                                {roomData?.scores?.[player.id] || 0} очок
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             if (gameState === 'playing') {
                 return (
                     <GameBoard
@@ -1643,7 +1851,338 @@
                     />
                 );
             }
-            
+
+            // UNICORN CANVAS: Голосування за підробного художника
+            if (gameState === 'voting_fake') {
+                const [myVote, setMyVote] = useState(null);
+
+                const handleVote = (targetId) => {
+                    setMyVote(targetId);
+                    if (socket) {
+                        socket.emit('vote_fake_artist', { suspectId: targetId });
+                    }
+                };
+
+                return (
+                    <div className="lobby-container">
+                        <div className="lobby">
+                            <h1>Хто підробний художник?</h1>
+                            <p style={{ fontSize: '18px', marginBottom: '20px' }}>
+                                Проголосуйте за гравця, якого ви підозрюєте
+                            </p>
+                            <p style={{ fontSize: '16px', color: '#666' }}>⏱️ 10 секунд</p>
+
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gap: '15px',
+                                maxWidth: '600px',
+                                margin: '30px auto'
+                            }}>
+                                {roomData?.players?.map(player => (
+                                    <button
+                                        key={player.id}
+                                        onClick={() => handleVote(player.id)}
+                                        className={`btn ${myVote === player.id ? 'btn-danger' : 'btn-secondary'}`}
+                                        disabled={myVote !== null}
+                                        style={{
+                                            padding: '20px',
+                                            fontSize: '16px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '30px',
+                                            height: '30px',
+                                            borderRadius: '50%',
+                                            background: player.color || '#ccc'
+                                        }}></div>
+                                        {player.name}
+                                        {player.id === playerId && ' (Ви)'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {myVote && (
+                                <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
+                                    ✓ Ваш голос збережено. Очікування інших гравців...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            // UNICORN CANVAS: Підробний художник вгадує слово
+            if (gameState === 'fake_guessing') {
+                const [guess, setGuess] = useState('');
+
+                const handleSubmitGuess = () => {
+                    if (socket && guess.trim()) {
+                        socket.emit('submit_fake_guess', { guess: guess.trim() });
+                    }
+                };
+
+                const isFakeArtist = playerCard?.isFake;
+
+                return (
+                    <div className="lobby-container">
+                        <div className="lobby">
+                            {isFakeArtist ? (
+                                <>
+                                    <h1>Вас спіймали! 🎭</h1>
+                                    <p style={{ fontSize: '18px', marginBottom: '20px' }}>
+                                        Спробуйте вгадати загадане слово з категорії: <strong>{currentTheme}</strong>
+                                    </p>
+                                    <p style={{ fontSize: '16px', color: '#666', marginBottom: '30px' }}>
+                                        ⏱️ 60 секунд на відповідь
+                                    </p>
+
+                                    <input
+                                        type="text"
+                                        value={guess}
+                                        onChange={(e) => setGuess(e.target.value)}
+                                        placeholder="Введіть ваше припущення..."
+                                        style={{
+                                            padding: '15px',
+                                            fontSize: '18px',
+                                            width: '400px',
+                                            maxWidth: '90%',
+                                            borderRadius: '5px',
+                                            border: '2px solid #ccc',
+                                            marginBottom: '20px'
+                                        }}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') handleSubmitGuess();
+                                        }}
+                                    />
+
+                                    <div>
+                                        <button
+                                            onClick={handleSubmitGuess}
+                                            className="btn btn-primary"
+                                            disabled={!guess.trim()}
+                                            style={{ fontSize: '18px', padding: '15px 40px' }}
+                                        >
+                                            Підтвердити відповідь
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <h1>Підробного художника спіймано!</h1>
+                                    <p style={{ fontSize: '18px' }}>
+                                        Зараз він намагається вгадати слово...
+                                    </p>
+                                    <div style={{ fontSize: '48px', margin: '40px 0' }}>⏳</div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            // UNICORN CANVAS: Голосування за правильність відповіді
+            if (gameState === 'voting_answer') {
+                const [myVote, setMyVote] = useState(null);
+
+                const handleVote = (isCorrect) => {
+                    setMyVote(isCorrect);
+                    if (socket) {
+                        socket.emit('vote_answer_correctness', { isCorrect });
+                    }
+                };
+
+                const isFakeArtist = playerCard?.isFake;
+
+                return (
+                    <div className="lobby-container">
+                        <div className="lobby">
+                            <h1>Чи правильна відповідь?</h1>
+
+                            <div style={{
+                                fontSize: '20px',
+                                marginTop: '30px',
+                                padding: '20px',
+                                background: '#f0f0f0',
+                                borderRadius: '10px',
+                                maxWidth: '600px',
+                                margin: '30px auto'
+                            }}>
+                                <div style={{ marginBottom: '15px' }}>
+                                    <strong>Категорія:</strong> {currentTheme}
+                                </div>
+                                <div style={{ marginBottom: '15px' }}>
+                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '28px', color: '#4CAF50' }}>{roomData?.currentWord || 'завантаження...'}</span>
+                                </div>
+                                <div>
+                                    <strong>Відповідь підробного:</strong> <span style={{ fontSize: '28px', color: '#FF5722' }}>{fakeArtistGuess}</span>
+                                </div>
+                            </div>
+
+                            {!isFakeArtist ? (
+                                <>
+                                    <p style={{ fontSize: '18px', marginBottom: '30px' }}>
+                                        Проголосуйте: чи правильно вгадав підробний художник?
+                                    </p>
+
+                                    <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                                        <button
+                                            onClick={() => handleVote(true)}
+                                            className={`btn ${myVote === true ? 'btn-success' : 'btn-secondary'}`}
+                                            disabled={myVote !== null}
+                                            style={{ padding: '20px 50px', fontSize: '20px' }}
+                                        >
+                                            ✓ Правильно
+                                        </button>
+                                        <button
+                                            onClick={() => handleVote(false)}
+                                            className={`btn ${myVote === false ? 'btn-danger' : 'btn-secondary'}`}
+                                            disabled={myVote !== null}
+                                            style={{ padding: '20px 50px', fontSize: '20px' }}
+                                        >
+                                            ✗ Неправильно
+                                        </button>
+                                    </div>
+
+                                    {myVote !== null && (
+                                        <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
+                                            ✓ Ваш голос збережено
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ fontSize: '18px', color: '#666' }}>
+                                    Інші гравці голосують...
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            // UNICORN CANVAS: Результати раунду
+            if (gameState === 'unicorn_round_end') {
+                const results = unicornRoundResults || {};
+                const isGameEnd = roomData?.state === 'game_end';
+
+                return (
+                    <div className="results-modal">
+                        <div className="results-content">
+                            <div className="results-header">
+                                <h2>{isGameEnd ? 'Гра завершена!' : `Результати раунду ${roomData?.currentRound}`}</h2>
+                            </div>
+
+                            <div style={{ marginTop: '30px' }}>
+                                <h3>Розкриття ролей:</h3>
+                                <div style={{
+                                    padding: '20px',
+                                    background: '#fff3cd',
+                                    borderRadius: '10px',
+                                    marginTop: '15px'
+                                }}>
+                                    <div style={{ fontSize: '20px', marginBottom: '10px' }}>
+                                        <strong>Категорія:</strong> {results.theme}
+                                    </div>
+                                    <div style={{ fontSize: '20px', marginBottom: '10px' }}>
+                                        <strong>Загадане слово:</strong> {results.word}
+                                    </div>
+                                    <div style={{ fontSize: '20px', color: '#FF5722' }}>
+                                        <strong>Підробний художник:</strong> {roomData?.players?.find(p => p.id === results.fakeArtistId)?.name}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '30px' }}>
+                                <h3>Що сталося:</h3>
+                                <div style={{
+                                    padding: '15px',
+                                    background: results.fakeWins ? '#ffebee' : '#e8f5e9',
+                                    borderRadius: '10px',
+                                    fontSize: '18px',
+                                    marginTop: '15px'
+                                }}>
+                                    {!results.fakeIsCaught && (
+                                        <p>🎭 Підробного художника не впіймали! Він виграв!</p>
+                                    )}
+                                    {results.fakeIsCaught && results.guessCorrect && (
+                                        <p>🎭 Підробного впіймали, але він правильно вгадав слово! Він виграв!</p>
+                                    )}
+                                    {results.fakeIsCaught && !results.guessCorrect && (
+                                        <p>✅ Підробного впіймали і він не вгадав слово! Художники перемогли!</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="scores-table" style={{ marginTop: '30px' }}>
+                                <h3>Рахунок:</h3>
+                                <table style={{ width: '100%', marginTop: '15px' }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Гравець</th>
+                                            <th>Очки</th>
+                                            <th>Роль</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {Object.entries(results.scores || {})
+                                            .sort(([,a], [,b]) => b - a)
+                                            .map(([pid, score]) => {
+                                                const player = roomData?.players?.find(p => p.id === pid);
+                                                const isFake = pid === results.fakeArtistId;
+                                                return (
+                                                    <tr key={pid}>
+                                                        <td>
+                                                            {player?.name}
+                                                            {pid === playerId && ' (Ви)'}
+                                                        </td>
+                                                        <td style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                                            {score}
+                                                        </td>
+                                                        <td>
+                                                            {isFake ? '🎭 Підробний' : '🎨 Художник'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="results-actions" style={{ marginTop: '30px' }}>
+                                {isGameEnd ? (
+                                    <div>
+                                        <h2 style={{ color: '#4CAF50', marginBottom: '20px' }}>
+                                            🏆 Переможець: {roomData?.players?.find(p => p.id === roomData?.winner)?.name}!
+                                        </h2>
+                                        {isHost && (
+                                            <button onClick={() => socket?.emit('new_game')} className="btn btn-primary">
+                                                Нова гра
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {isHost && (
+                                            <button
+                                                onClick={() => socket?.emit('start_next_round')}
+                                                className="btn btn-primary"
+                                            >
+                                                Наступний раунд
+                                            </button>
+                                        )}
+                                        {!isHost && <p>Очікування наступного раунду...</p>}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             if (gameState === 'round_end') {
                 return (
                     <div className="results-modal">
