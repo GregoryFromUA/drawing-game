@@ -977,17 +977,18 @@ class FakeArtistGame {
     this.state = 'voting_answer';
     this.votesForCorrectness.clear();
 
+    // Відправляємо подію про початок голосування
+    this.io.to(this.code).emit('voting_answer_started', {
+      fakeGuess: guess,
+      word: this.currentWord,
+      state: this.getState()
+    });
+
     // Таймер на голосування
     setTimeout(() => {
       // Час вийшов, завершуємо голосування незалежно від кількості голосів
       if (this.state === 'voting_answer') {
         this.finishVotingForCorrectness();
-
-        // Відправляємо результати
-        this.io.to(this.code).emit('round_ended_unicorn', {
-          results: this.roundResults,
-          state: this.getState()
-        });
       }
     }, 15000); // 15 секунд для голосування
   }
@@ -1035,6 +1036,12 @@ class FakeArtistGame {
       this.awardPoints('fake_caught_wrong');
       this.endRound({ fakeIsCaught: true, fakeWins: false, guessCorrect: false });
     }
+
+    // Відправляємо результати раунду
+    this.io.to(this.code).emit('round_ended_unicorn', {
+      results: this.roundResults,
+      state: this.getState()
+    });
   }
 
   awardPoints(scenario) {
@@ -1478,23 +1485,7 @@ io.on('connection', (socket) => {
     if (!room || room.mode !== 'unicorn_canvas') return;
 
     room.submitThemeVotes(currentPlayerId, selectedThemes);
-
-    // Перевіряємо чи раунд почався (всі проголосували)
-    if (room.state === 'drawing') {
-      // Відправляємо кожному його карточку
-      for (let [playerId, player] of room.players) {
-        const card = room.playerCards.get(playerId);
-        io.to(player.socketId).emit('round_started_unicorn', {
-          round: room.currentRound,
-          theme: room.currentTheme,
-          card: card,
-          turnOrder: room.turnOrder,
-          currentTurnIndex: room.currentTurnIndex,
-          currentDrawingRound: room.currentDrawingRound,
-          state: room.getState()
-        });
-      }
-    }
+    // Автоматичний emit в startRound() коли всі проголосували
   });
 
   // Коли вибір тем завершено і раунд починається
@@ -1541,24 +1532,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomCode);
     if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
 
-    const success = room.finishTurn(currentPlayerId);
-    if (success) {
-      // Переходимо до наступного ходу
-      if (room.state === 'voting_fake') {
-        // Малювання завершено, починаємо голосування
-        io.to(currentRoomCode).emit('voting_for_fake_started', {
-          state: room.getState()
-        });
-      } else {
-        // Наступний гравець малює
-        io.to(currentRoomCode).emit('next_turn', {
-          currentTurnIndex: room.currentTurnIndex,
-          currentDrawingRound: room.currentDrawingRound,
-          currentPlayerId: room.turnOrder[room.currentTurnIndex],
-          state: room.getState()
-        });
-      }
-    }
+    room.finishTurn(currentPlayerId);
+    // Автоматичний emit в nextTurn() або startVotingForFake()
   });
 
   // Таймер ходу вийшов
@@ -1568,19 +1543,7 @@ io.on('connection', (socket) => {
     if (currentPlayerId !== room.turnOrder[room.currentTurnIndex]) return;
 
     room.nextTurn();
-
-    if (room.state === 'voting_fake') {
-      io.to(currentRoomCode).emit('voting_for_fake_started', {
-        state: room.getState()
-      });
-    } else {
-      io.to(currentRoomCode).emit('next_turn', {
-        currentTurnIndex: room.currentTurnIndex,
-        currentDrawingRound: room.currentDrawingRound,
-        currentPlayerId: room.turnOrder[room.currentTurnIndex],
-        state: room.getState()
-      });
-    }
+    // Автоматичний emit в nextTurn() або startVotingForFake()
   });
 
   // Голосування за підробного художника
@@ -1589,41 +1552,13 @@ io.on('connection', (socket) => {
     if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'voting_fake') return;
 
     room.submitVoteForFake(currentPlayerId, suspectId);
-
-    // Перевіряємо що сталося після голосування
-    if (room.state === 'fake_guessing') {
-      // Підробного спіймали, він повинен вгадати
-      io.to(currentRoomCode).emit('fake_guessing_started', {
-        fakeArtistId: room.fakeArtistId,
-        state: room.getState()
-      });
-    } else if (room.state === 'round_end' || room.state === 'game_end') {
-      // Раунд завершено (підробний не спійманий)
-      io.to(currentRoomCode).emit('round_ended_unicorn', {
-        results: room.roundResults,
-        state: room.getState()
-      });
-    }
+    // Автоматичний emit в finishVotingForFake()
   });
 
-  // Коли голосування завершено
+  // Коли голосування завершено (не використовується - автоматичний таймер)
   socket.on('voting_fake_finished', () => {
-    const room = rooms.get(currentRoomCode);
-    if (!room || room.mode !== 'unicorn_canvas') return;
-
-    if (room.state === 'fake_guessing') {
-      // Підробний повинен вгадати слово
-      io.to(currentRoomCode).emit('fake_guessing_started', {
-        fakeArtistId: room.fakeArtistId,
-        state: room.getState()
-      });
-    } else if (room.state === 'round_end') {
-      // Раунд завершено
-      io.to(currentRoomCode).emit('round_ended_unicorn', {
-        results: room.roundResults,
-        state: room.getState()
-      });
-    }
+    // Голосування завершується автоматично через таймер або коли всі проголосували
+    // Автоматичний emit в finishVotingForFake()
   });
 
   // Підробний вгадує слово
@@ -1631,15 +1566,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomCode);
     if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'fake_guessing') return;
 
-    const success = room.submitGuess(currentPlayerId, guess);
-    if (success) {
-      // Переходимо до голосування за правильність
-      io.to(currentRoomCode).emit('voting_answer_started', {
-        fakeGuess: guess,
-        word: room.currentWord,
-        state: room.getState()
-      });
-    }
+    room.submitGuess(currentPlayerId, guess);
+    // Автоматичний emit в finishGuessing()
   });
 
   // Голосування за правильність відповіді
@@ -1648,26 +1576,13 @@ io.on('connection', (socket) => {
     if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'voting_answer') return;
 
     room.submitVoteForCorrectness(currentPlayerId, isCorrect);
-
-    // Перевіряємо чи голосування завершено
-    if (room.state === 'round_end' || room.state === 'game_end') {
-      // Голосування автоматично завершилося, відправляємо результати
-      io.to(currentRoomCode).emit('round_ended_unicorn', {
-        results: room.roundResults,
-        state: room.getState()
-      });
-    }
+    // Автоматичний emit в finishVotingForCorrectness()
   });
 
-  // Коли голосування за відповідь завершено
+  // Коли голосування за відповідь завершено (не використовується - автоматичний таймер)
   socket.on('voting_answer_finished', () => {
-    const room = rooms.get(currentRoomCode);
-    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'round_end') return;
-
-    io.to(currentRoomCode).emit('round_ended_unicorn', {
-      results: room.roundResults,
-      state: room.getState()
-    });
+    // Голосування завершується автоматично через таймер або коли всі проголосували
+    // Автоматичний emit в finishVotingForCorrectness()
   });
 
   // Наступний раунд
