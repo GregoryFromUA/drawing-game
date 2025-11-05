@@ -525,9 +525,10 @@ class GameRoom {
 
 // Клас для управління грою Unicorn Canvas (Fake Artist)
 class FakeArtistGame {
-  constructor(code, hostId) {
+  constructor(code, hostId, io) {
     this.code = code;
     this.hostId = hostId;
+    this.io = io; // Socket.io instance для відправки подій
     this.players = new Map(); // playerId -> {id, name, socketId, connected, color}
     this.state = 'lobby'; // lobby, theme_selection, drawing, voting_fake, fake_guessing, voting_answer, round_end, game_end
     this.mode = 'unicorn_canvas';
@@ -758,6 +759,20 @@ class FakeArtistGame {
     this.startTurnTimer();
 
     console.log(`Round ${this.currentRound}: Theme=${this.currentTheme}, Word=${this.currentWord}, Fake=${this.fakeArtistId}`);
+
+    // Відправляємо кожному гравцю його карточку
+    for (let [playerId, player] of this.players) {
+      const card = this.playerCards.get(playerId);
+      this.io.to(player.socketId).emit('round_started_unicorn', {
+        round: this.currentRound,
+        theme: this.currentTheme,
+        card: card,
+        turnOrder: this.turnOrder,
+        currentTurnIndex: this.currentTurnIndex,
+        currentDrawingRound: this.currentDrawingRound,
+        state: this.getState()
+      });
+    }
   }
 
   startTurnTimer() {
@@ -817,6 +832,14 @@ class FakeArtistGame {
 
     // Запускаємо таймер для наступного ходу
     this.startTurnTimer();
+
+    // Відправляємо оновлення про наступний хід
+    this.io.to(this.code).emit('next_turn', {
+      currentTurnIndex: this.currentTurnIndex,
+      currentDrawingRound: this.currentDrawingRound,
+      currentPlayerId: this.turnOrder[this.currentTurnIndex],
+      state: this.getState()
+    });
   }
 
   // Голосування за підробного
@@ -828,6 +851,11 @@ class FakeArtistGame {
     this.votingTimer = setTimeout(() => {
       this.finishVotingForFake();
     }, 10000);
+
+    // Відправляємо подію про початок голосування
+    this.io.to(this.code).emit('voting_for_fake_started', {
+      state: this.getState()
+    });
   }
 
   submitVoteForFake(playerId, suspectId) {
@@ -876,14 +904,32 @@ class FakeArtistGame {
       // Підробний не спійманий (або не отримав більшості) - автоматична перемога
       this.awardPoints('fake_not_caught');
       this.endRound({ fakeIsCaught: false, fakeWins: true });
+
+      // Відправляємо результати раунду
+      this.io.to(this.code).emit('round_ended_unicorn', {
+        results: this.roundResults,
+        state: this.getState()
+      });
     } else if (fakeIsCaught && !isTie) {
       // Підробний спійманий (отримав більшість) - дозволяємо йому вгадати слово
       this.state = 'fake_guessing';
       this.startGuessTimer();
+
+      // Відправляємо подію про початок вгадування
+      this.io.to(this.code).emit('fake_guessing_started', {
+        fakeArtistId: this.fakeArtistId,
+        state: this.getState()
+      });
     } else if (fakeIsCaught && isTie) {
       // Нічия і підробний серед підозрюваних - дозволяємо вгадати
       this.state = 'fake_guessing';
       this.startGuessTimer();
+
+      // Відправляємо подію про початок вгадування
+      this.io.to(this.code).emit('fake_guessing_started', {
+        fakeArtistId: this.fakeArtistId,
+        state: this.getState()
+      });
     }
   }
 
@@ -918,6 +964,12 @@ class FakeArtistGame {
       // Підробний не відповів - художники перемагають
       this.awardPoints('fake_caught_wrong');
       this.endRound({ fakeIsCaught: true, fakeWins: false, guessCorrect: false });
+
+      // Відправляємо результати раунду
+      this.io.to(this.code).emit('round_ended_unicorn', {
+        results: this.roundResults,
+        state: this.getState()
+      });
       return;
     }
 
@@ -925,9 +977,18 @@ class FakeArtistGame {
     this.state = 'voting_answer';
     this.votesForCorrectness.clear();
 
-    // Таймер не потрібен для цього голосування (швидке)
+    // Таймер на голосування
     setTimeout(() => {
-      this.checkVotingAnswerProgress();
+      // Час вийшов, завершуємо голосування незалежно від кількості голосів
+      if (this.state === 'voting_answer') {
+        this.finishVotingForCorrectness();
+
+        // Відправляємо результати
+        this.io.to(this.code).emit('round_ended_unicorn', {
+          results: this.roundResults,
+          state: this.getState()
+        });
+      }
     }, 15000); // 15 секунд для голосування
   }
 
@@ -1086,7 +1147,7 @@ io.on('connection', (socket) => {
     // Створюємо кімнату відповідного типу
     let room;
     if (mode === 'unicorn_canvas') {
-      room = new FakeArtistGame(roomCode, playerId);
+      room = new FakeArtistGame(roomCode, playerId, io);
     } else {
       room = new GameRoom(roomCode, playerId);
     }
@@ -1236,7 +1297,7 @@ io.on('connection', (socket) => {
     room.cleanup();
 
     // Створюємо нову FakeArtistGame
-    const newRoom = new FakeArtistGame(roomCode, hostId);
+    const newRoom = new FakeArtistGame(roomCode, hostId, io);
 
     // Копіюємо гравців
     for (let playerData of playersData) {
