@@ -1217,14 +1217,21 @@
 
                     // ВИПРАВЛЕНО: Використовуємо правильне assignment від сервера, а не те що вибрав користувач
                     if (targetAssignment) {
-                        setWordAssignments(prev => ({
-                            ...prev,
-                            [targetId]: {
-                                letter: targetAssignment.letter,
-                                number: targetAssignment.number,
-                                word: targetAssignment.word
-                            }
-                        }));
+                        setWordAssignments(prev => {
+                            console.log('🔄 Updating wordAssignments. Before:', prev);
+                            const updated = {
+                                ...prev,
+                                [targetId]: {
+                                    letter: targetAssignment.letter,
+                                    number: targetAssignment.number,
+                                    word: targetAssignment.word
+                                }
+                            };
+                            console.log('🔄 After:', updated);
+                            return updated;
+                        });
+                    } else {
+                        console.warn('⚠️ targetAssignment is missing from server response!');
                     }
 
                     // НОВЕ: Зберігаємо правильність здогадки
@@ -1921,12 +1928,14 @@
                 if (wordAssignments[targetPlayerId]) return; // Вже закріплено
                 if (myGuesses[targetPlayerId]) return; // Вже відгадано
 
-                // ВИПРАВЛЕНО: НЕ закріплюємо вибір локально, чекаємо на відповідь від сервера
-                // Сервер поверне правильне assignment в guess_accepted
-                // setWordAssignments(prev => ({
-                //     ...prev,
-                //     [targetPlayerId]: wordData
-                // }));
+                console.log(`🎯 User selected: ${wordData.letter}${wordData.number} "${wordData.word}" for player ${targetPlayerId}`);
+
+                // Закріплюємо вибір користувача (для візуальної підказки)
+                setWordAssignments(prev => {
+                    const updated = { ...prev, [targetPlayerId]: wordData };
+                    console.log('💾 wordAssignments set (user choice):', updated);
+                    return updated;
+                });
 
                 // Відправляємо на сервер
                 makeGuess(targetPlayerId, wordData.number);
