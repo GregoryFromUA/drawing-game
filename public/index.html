@@ -553,7 +553,6 @@
         canvas {
             display: block;
             cursor: crosshair;
-            background: white;
             border-radius: 8px;
             image-rendering: auto;
         }
@@ -1800,11 +1799,14 @@
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
                     // Рисуем белым цветом вместо стирания
+                    console.log('ERASER startDrawing: using WHITE color');
                     ctx.globalCompositeOperation = 'source-over';
-                    ctx.fillStyle = 'rgb(255, 255, 255)';
+                    ctx.fillStyle = '#FFFFFF';
+                    console.log('fillStyle set to:', ctx.fillStyle);
                     ctx.beginPath();
                     ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
                     ctx.fill();
+                    console.log('Eraser circle drawn at', x, y, 'with size', currentSize);
                 } else {
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.fillStyle = currentColor;
@@ -1843,8 +1845,10 @@
 
                 if (currentTool === 'eraser') {
                     // Рисуем белым цветом
-                    ctx.strokeStyle = 'rgb(255, 255, 255)';
+                    console.log('ERASER draw: using WHITE stroke');
+                    ctx.strokeStyle = '#FFFFFF';
                     ctx.lineWidth = currentSize * 2;
+                    console.log('strokeStyle set to:', ctx.strokeStyle, 'lineWidth:', ctx.lineWidth);
                 } else {
                     // Обычное рисование кистью
                     ctx.strokeStyle = currentColor;
