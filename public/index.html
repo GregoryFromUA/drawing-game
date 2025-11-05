@@ -1743,10 +1743,10 @@
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (canvas) {
-                    // ВАЖНО: willReadFrequently для корректной работы ластика
+                    // alpha: false теперь БЕЗОПАСНО - ластик рисует белым, не стирает
                     const ctx = canvas.getContext('2d', {
-                        willReadFrequently: true,
-                        desynchronized: false  // Отключаем для стабильности ластика
+                        alpha: false,
+                        desynchronized: true
                     });
                     ctxRef.current = ctx;
 
@@ -1764,9 +1764,9 @@
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
 
-                    // Білий фон - ВАЖНО: используем непрозрачный белый
+                    // Білий фон
                     ctx.globalCompositeOperation = 'source-over';
-                    ctx.fillStyle = 'rgb(255, 255, 255)'; // НЕ rgba!
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, 640, 480);
 
                     // Кешируем размеры canvas
@@ -1799,14 +1799,11 @@
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
                     // Рисуем белым цветом вместо стирания
-                    console.log('ERASER startDrawing: using WHITE color');
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.fillStyle = '#FFFFFF';
-                    console.log('fillStyle set to:', ctx.fillStyle);
                     ctx.beginPath();
                     ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
                     ctx.fill();
-                    console.log('Eraser circle drawn at', x, y, 'with size', currentSize);
                 } else {
                     ctx.globalCompositeOperation = 'source-over';
                     ctx.fillStyle = currentColor;
@@ -1845,10 +1842,8 @@
 
                 if (currentTool === 'eraser') {
                     // Рисуем белым цветом
-                    console.log('ERASER draw: using WHITE stroke');
                     ctx.strokeStyle = '#FFFFFF';
                     ctx.lineWidth = currentSize * 2;
-                    console.log('strokeStyle set to:', ctx.strokeStyle, 'lineWidth:', ctx.lineWidth);
                 } else {
                     // Обычное рисование кистью
                     ctx.strokeStyle = currentColor;
@@ -2422,8 +2417,8 @@
                 const canvas = canvasRef.current;
                 if (!canvas) return;
 
-                // ВАЖНО: НЕ используем alpha: false - ластик требует альфа-канал!
-                const ctx = canvas.getContext('2d');
+                // alpha: false безопасно - ластик рисует белым
+                const ctx = canvas.getContext('2d', { alpha: false });
 
                 canvas.width = canvasSize.width;
                 canvas.height = canvasSize.height;
@@ -2434,7 +2429,7 @@
                 ctx.imageSmoothingQuality = 'high';
 
                 // Білий фон
-                ctx.fillStyle = 'white';
+                ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
 
                 lastDrawnIndexRef.current = 0;
@@ -2445,12 +2440,12 @@
                 const canvas = canvasRef.current;
                 if (!canvas) return;
 
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { alpha: false });
 
                 // Проверяем на clear_canvas событие
                 if (drawing.length === 0 && lastDrawnIndexRef.current > 0) {
                     // Canvas был очищен
-                    ctx.fillStyle = 'white';
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
                     lastDrawnIndexRef.current = 0;
                     isDrawingPathRef.current = false;
@@ -2467,14 +2462,14 @@
                         const x = stroke.x * canvasSize.width;
                         const y = stroke.y * canvasSize.height;
 
+                        ctx.globalCompositeOperation = 'source-over';
                         if (stroke.tool === 'eraser') {
-                            ctx.globalCompositeOperation = 'destination-out';
+                            // Рисуем белым вместо стирания
+                            ctx.fillStyle = '#FFFFFF';
                             ctx.beginPath();
                             ctx.arc(x, y, stroke.size * (canvasSize.width / 640), 0, 2 * Math.PI);
                             ctx.fill();
-                            ctx.globalCompositeOperation = 'source-over';
                         } else {
-                            ctx.globalCompositeOperation = 'source-over';
                             ctx.fillStyle = stroke.color;
                             ctx.beginPath();
                             ctx.arc(x, y, (stroke.size * (canvasSize.width / 640)) / 2, 0, 2 * Math.PI);
@@ -2488,11 +2483,12 @@
                         const x = stroke.x * canvasSize.width;
                         const y = stroke.y * canvasSize.height;
 
+                        ctx.globalCompositeOperation = 'source-over';
                         if (stroke.tool === 'eraser') {
-                            ctx.globalCompositeOperation = 'destination-out';
+                            // Рисуем белым вместо стирания
+                            ctx.strokeStyle = '#FFFFFF';
                             ctx.lineWidth = stroke.size * 2 * (canvasSize.width / 640);
                         } else {
-                            ctx.globalCompositeOperation = 'source-over';
                             ctx.strokeStyle = stroke.color;
                             ctx.lineWidth = stroke.size * (canvasSize.width / 640);
                         }
