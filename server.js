@@ -1049,6 +1049,7 @@ class FakeArtistGame {
 
       // Drawing phase
       currentTheme: this.state === 'drawing' || this.state === 'voting_fake' || this.state === 'fake_guessing' || this.state === 'voting_answer' || this.state === 'round_end' ? this.currentTheme : undefined,
+      currentWord: this.state === 'voting_answer' || this.state === 'round_end' ? this.currentWord : undefined,
       sharedDrawing: this.sharedDrawing,
       turnOrder: this.state === 'drawing' ? this.turnOrder : undefined,
       currentTurnIndex: this.state === 'drawing' ? this.currentTurnIndex : undefined,
@@ -1528,9 +1529,19 @@ io.on('connection', (socket) => {
 
     room.submitVoteForFake(currentPlayerId, suspectId);
 
-    // Перевіряємо чи всі проголосували
-    if (room.votesForFake.size === room.players.size) {
-      io.to(currentRoomCode).emit('all_votes_submitted');
+    // Перевіряємо що сталося після голосування
+    if (room.state === 'fake_guessing') {
+      // Підробного спіймали, він повинен вгадати
+      io.to(currentRoomCode).emit('fake_guessing_started', {
+        fakeArtistId: room.fakeArtistId,
+        state: room.getState()
+      });
+    } else if (room.state === 'round_end' || room.state === 'game_end') {
+      // Раунд завершено (підробний не спійманий)
+      io.to(currentRoomCode).emit('round_ended_unicorn', {
+        results: room.roundResults,
+        state: room.getState()
+      });
     }
   });
 
@@ -1577,8 +1588,14 @@ io.on('connection', (socket) => {
 
     room.submitVoteForCorrectness(currentPlayerId, isCorrect);
 
-    // Автоматично завершуємо якщо всі проголосували
-    // (перевірка всередині room.submitVoteForCorrectness)
+    // Перевіряємо чи голосування завершено
+    if (room.state === 'round_end' || room.state === 'game_end') {
+      // Голосування автоматично завершилося, відправляємо результати
+      io.to(currentRoomCode).emit('round_ended_unicorn', {
+        results: room.roundResults,
+        state: room.getState()
+      });
+    }
   });
 
   // Коли голосування за відповідь завершено
