@@ -1215,29 +1215,19 @@
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
 
-                    // ВИПРАВЛЕНО: Використовуємо правильне assignment від сервера, а не те що вибрав користувач
-                    if (targetAssignment) {
-                        setWordAssignments(prev => {
-                            console.log('🔄 Updating wordAssignments. Before:', prev);
-                            const updated = {
-                                ...prev,
-                                [targetId]: {
-                                    letter: targetAssignment.letter,
-                                    number: targetAssignment.number,
-                                    word: targetAssignment.word
-                                }
-                            };
-                            console.log('🔄 After:', updated);
-                            return updated;
-                        });
-                    } else {
-                        console.warn('⚠️ targetAssignment is missing from server response!');
-                    }
-
-                    // НОВЕ: Зберігаємо правильність здогадки
+                    // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
+                    // Вместо этого сохраняем правильный ответ в myGuessResults
                     setMyGuessResults(prev => {
-                        const newResults = { ...prev, [targetId]: { number, correct } };
-                        console.log('📊 myGuessResults updated:', newResults); // DEBUG
+                        const newResults = {
+                            ...prev,
+                            [targetId]: {
+                                number,
+                                correct,
+                                // Сохраняем правильное assignment от сервера
+                                targetAssignment: targetAssignment
+                            }
+                        };
+                        console.log('📊 myGuessResults updated:', newResults);
                         return newResults;
                     });
                 });
@@ -2314,13 +2304,23 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
-                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
-                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                    // ВИПРАВЛЕНО: Перевіряємо чи це слово - вибір користувача або правильна відповідь
+                                    // 1. Перевіряємо чи користувач вибрав це слово
+                                    const userSelectedPlayerId = Object.keys(wordAssignments).find(
                                         pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
                                     );
-                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
-                                    const isCorrect = guessResult?.correct === true;
-                                    const isIncorrect = guessResult?.correct === false;
+                                    const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
+
+                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
+                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
+                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
+                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    );
+
+                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // Слово неправильне якщо: користувач вибрав і correct=false
+                                    const isIncorrect = userGuessResult?.correct === false;
 
                                     return (
                                         <div
@@ -2356,13 +2356,23 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
-                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
-                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                    // ВИПРАВЛЕНО: Перевіряємо чи це слово - вибір користувача або правильна відповідь
+                                    // 1. Перевіряємо чи користувач вибрав це слово
+                                    const userSelectedPlayerId = Object.keys(wordAssignments).find(
                                         pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
                                     );
-                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
-                                    const isCorrect = guessResult?.correct === true;
-                                    const isIncorrect = guessResult?.correct === false;
+                                    const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
+
+                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
+                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
+                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
+                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    );
+
+                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // Слово неправильне якщо: користувач вибрав і correct=false
+                                    const isIncorrect = userGuessResult?.correct === false;
 
                                     return (
                                         <div
@@ -2539,6 +2549,11 @@
             const isCorrect = guessResult?.correct === true;
             const isIncorrect = guessResult?.correct === false;
 
+            // ВИПРАВЛЕНО: Показуємо правильне слово від сервера, а не вибір користувача
+            const displayWord = guessResult?.targetAssignment?.word || wordAssignment?.word;
+            // Колір тексту залежить від правильності
+            const wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
+
             return (
                 <div
                     className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
@@ -2556,11 +2571,11 @@
                         {hasAssignment && (
                             <div style={{
                                 fontSize: '0.75em',
-                                color: '#4caf50',
+                                color: wordColor,
                                 marginTop: '2px',
                                 fontWeight: '600'
                             }}>
-                                {wordAssignment.word}
+                                {displayWord}
                             </div>
                         )}
                     </div>
