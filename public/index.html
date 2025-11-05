@@ -1181,6 +1181,16 @@
                 });
                 
                 newSocket.on('round_started', (data) => {
+                    // DEBUG: Виводимо що отримали від сервера
+                    console.log('\n📥 CLIENT RECEIVED round_started:');
+                    console.log('  Round:', data.round);
+                    console.log('  WordSet A:', data.wordSet?.A);
+                    console.log('  WordSet B:', data.wordSet?.B);
+                    console.log('  WordSet C:', data.wordSet?.C);
+                    console.log('  WordSet D:', data.wordSet?.D);
+                    console.log('  Personal assignment:', data.personalAssignment);
+                    console.log('  Full data:', data);
+
                     setRoundData(data);
                     setGameState('playing');
                     setDrawings({});

@@ -618,6 +618,15 @@ io.on('connection', (socket) => {
       // Відправляємо кожному гравцю його персональне завдання
       for (let [playerId, player] of room.players) {
         const assignment = roundData.assignments.get(playerId);
+
+        // DEBUG: Виводимо wordSet що відправляється клієнту
+        console.log(`\n📤 Sending to player ${playerId}:`);
+        console.log(`  WordSet A:`, roundData.wordSet.A);
+        console.log(`  WordSet B:`, roundData.wordSet.B);
+        console.log(`  WordSet C:`, roundData.wordSet.C);
+        console.log(`  WordSet D:`, roundData.wordSet.D);
+        console.log(`  Personal assignment: ${assignment.letter}${assignment.number} "${assignment.word}"`);
+
         io.to(player.socketId).emit('round_started', {
           round: roundData.round,
           wordSet: roundData.wordSet,
