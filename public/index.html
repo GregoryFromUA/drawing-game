@@ -553,9 +553,39 @@
         canvas {
             display: block;
             cursor: crosshair;
-            background: white;
             border-radius: 8px;
             image-rendering: auto;
+        }
+
+        /* Custom cursor для canvas */
+        .custom-cursor {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.1s, height 0.1s, background-color 0.1s, border 0.1s;
+        }
+
+        .custom-cursor.pen-cursor {
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            opacity: 0.7;
+        }
+
+        .custom-cursor.eraser-cursor {
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border: 2px solid rgba(244, 67, 54, 0.6);
+            opacity: 0.8;
+        }
+
+        /* Скрываем стандартный курсор на главном canvas */
+        .canvas-container canvas {
+            cursor: none !important;
+        }
+
+        /* Pointer для canvas'ов других игроков */
+        .drawing-card canvas {
+            cursor: pointer !important;
         }
         
         /* Нижня секція з канвасами інших гравців */
@@ -621,6 +651,21 @@
         .drawing-card.guessed {
             border-color: #4caf50;
             background: #f1f8e9;
+        }
+
+        /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
+        .drawing-card.correct {
+            border: 3px solid #4caf50 !important;
+            background: #f1f8e9 !important;
+            box-shadow: 0 0 12px rgba(76, 175, 80, 0.6) !important;
+            cursor: not-allowed;
+        }
+
+        .drawing-card.incorrect {
+            border: 3px solid #f44336 !important;
+            background: #ffebee !important;
+            box-shadow: 0 0 12px rgba(244, 67, 54, 0.6) !important;
+            cursor: not-allowed;
         }
         
         .drawing-player-name {
@@ -1165,15 +1210,24 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
-                    console.log('✅ guess_accepted:', { targetId, number, correct }); // DEBUG
+                newSocket.on('guess_accepted', ({ targetId, number, correct, targetAssignment }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, correct, targetAssignment }); // DEBUG
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
 
-                    // НОВЕ: Зберігаємо правильність здогадки
+                    // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
+                    // Вместо этого сохраняем правильный ответ в myGuessResults
                     setMyGuessResults(prev => {
-                        const newResults = { ...prev, [targetId]: { number, correct } };
-                        console.log('📊 myGuessResults updated:', newResults); // DEBUG
+                        const newResults = {
+                            ...prev,
+                            [targetId]: {
+                                number,
+                                correct,
+                                // Сохраняем правильное assignment от сервера
+                                targetAssignment: targetAssignment
+                            }
+                        };
+                        console.log('📊 myGuessResults updated:', newResults);
                         return newResults;
                     });
                 });
@@ -1620,7 +1674,6 @@
             const [currentColor, setCurrentColor] = useState('#000000');
             const [currentSize, setCurrentSize] = useState(5);
             const [currentTool, setCurrentTool] = useState('pen');
-            const [myDrawingData, setMyDrawingData] = useState([]);
             const [showScoreRules, setShowScoreRules] = useState(false);
 
             // Нове: Drag-and-Drop та Select стан
@@ -1630,9 +1683,17 @@
             const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
             const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
 
+            // Custom cursor refs (для производительности - без ререндеров)
+            const customCursorRef = useRef(null);
+            const showCustomCursorRef = useRef(false);
+
             const strokeBufferRef = useRef([]);
             const lastXRef = useRef(null);
             const lastYRef = useRef(null);
+
+            // Оптимизация: кешируем контекст и размеры
+            const ctxRef = useRef(null);
+            const canvasBoundsRef = useRef(null);
             
             const colors = [
                 '#000000', '#FF0000', '#00FF00', '#0000FF', 
@@ -1645,175 +1706,211 @@
             // Оптимізована синхронізація малювання
             useEffect(() => {
                 let animationFrameId;
-                
+
                 const sendStrokes = () => {
                     if (strokeBufferRef.current.length > 0 && socket) {
-                        socket.emit('drawing_update', { 
-                            strokes: strokeBufferRef.current 
+                        socket.emit('drawing_update', {
+                            strokes: strokeBufferRef.current
                         });
                         strokeBufferRef.current = [];
                     }
                     animationFrameId = requestAnimationFrame(sendStrokes);
                 };
-                
+
                 animationFrameId = requestAnimationFrame(sendStrokes);
-                
+
                 return () => {
                     cancelAnimationFrame(animationFrameId);
                 };
             }, [socket]);
+
+            // Оптимізоване оновлення cursor через пряме DOM маніпулювання
+            const updateCustomCursor = useCallback((x, y) => {
+                if (!customCursorRef.current) return;
+
+                customCursorRef.current.style.left = `${x}px`;
+                customCursorRef.current.style.top = `${y}px`;
+
+                // Обновляем размер и цвет
+                const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
+                customCursorRef.current.style.width = `${size}px`;
+                customCursorRef.current.style.height = `${size}px`;
+                customCursorRef.current.style.backgroundColor =
+                    currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+
+                // Обновляем класс
+                if (currentTool === 'eraser') {
+                    customCursorRef.current.classList.add('eraser-cursor');
+                    customCursorRef.current.classList.remove('pen-cursor');
+                } else {
+                    customCursorRef.current.classList.add('pen-cursor');
+                    customCursorRef.current.classList.remove('eraser-cursor');
+                }
+            }, [currentColor, currentSize, currentTool]);
             
             // Ініціалізація canvas з підтримкою High DPI
-			useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        
-        // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
-        canvas.width = 640;
-        canvas.height = 480;
-        
-        // CSS розмір для відображення
-        canvas.style.width = '640px';
-        canvas.style.height = '480px';
-        
-        // Налаштування контексту
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        
-        // Білий фон
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, 640, 480);
-    }
-}, []);
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    // alpha: false теперь БЕЗОПАСНО - ластик рисует белым, не стирает
+                    const ctx = canvas.getContext('2d', {
+                        alpha: false,
+                        desynchronized: true
+                    });
+                    ctxRef.current = ctx;
+
+                    // ВИПРАВЛЕНО: Використовуємо фіксовані логічні розміри
+                    canvas.width = 640;
+                    canvas.height = 480;
+
+                    // CSS розмір для відображення
+                    canvas.style.width = '640px';
+                    canvas.style.height = '480px';
+
+                    // Налаштування контексту
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+
+                    // Білий фон
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, 640, 480);
+
+                    // Кешируем размеры canvas
+                    const updateBounds = () => {
+                        canvasBoundsRef.current = canvas.getBoundingClientRect();
+                    };
+                    updateBounds();
+
+                    // Обновляем при resize окна
+                    window.addEventListener('resize', updateBounds);
+                    return () => window.removeEventListener('resize', updateBounds);
+                }
+            }, []);
             
             const startDrawing = (e) => {
-    if (isDrawingLocked) return;
+                if (isDrawingLocked || !ctxRef.current || !canvasBoundsRef.current) return;
 
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    // ВИПРАВЛЕНО: Проста нормалізація без DPR
-    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
-    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
-    
-    lastXRef.current = x;
-    lastYRef.current = y;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Малювання початкової точки
-    if (currentTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.beginPath();
-        ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
-        ctx.fill();
-    } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = currentColor;
-        ctx.beginPath();
-        ctx.arc(x, y, currentSize / 2, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-                
-               const strokeData = {
-        x: x / 640,  // Нормалізація до діапазону 0-1
-        y: y / 480,  // Нормалізація до діапазону 0-1
-        color: currentColor,
-        size: currentSize,
-        tool: currentTool,
-        type: 'start'
-    };
-                
-               strokeBufferRef.current.push(strokeData);
-				setMyDrawingData(prev => [...prev, strokeData]);
+                setIsDrawing(true);
+                const rect = canvasBoundsRef.current; // Используем кешированное значение
+
+                // ВИПРАВЛЕНО: Проста нормалізація без DPR
+                const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
+                const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
+
+                lastXRef.current = x;
+                lastYRef.current = y;
+
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Малювання початкової точки
+                if (currentTool === 'eraser') {
+                    // Рисуем белым цветом вместо стирания
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.beginPath();
+                    ctx.arc(x, y, currentSize, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = currentColor;
+                    ctx.beginPath();
+                    ctx.arc(x, y, currentSize / 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+
+                const strokeData = {
+                    x: x / 640,  // Нормалізація до діапазону 0-1
+                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    color: currentColor,
+                    size: currentSize,
+                    tool: currentTool,
+                    type: 'start'
+                };
+
+                strokeBufferRef.current.push(strokeData);
             };
             
             const draw = useCallback((e) => {
-    if (!isDrawing || isDrawingLocked || lastXRef.current === null) return;
-    
-    e.preventDefault();
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    
-    // ВИПРАВЛЕНО: Проста нормалізація без DPR
-    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
-    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Налаштування інструменту
-    if (currentTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = currentSize * 2;
-    } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = currentColor;
-        ctx.lineWidth = currentSize;
-    }
-    
-    // Малювання лінії
-    ctx.beginPath();
-    ctx.moveTo(lastXRef.current, lastYRef.current);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    
-    lastXRef.current = x;
-    lastYRef.current = y;
-    
-    // ВИПРАВЛЕНО: Відправляємо нормалізовані координати (0-1)
-    const strokeData = {
-        x: x / 640,  // Нормалізація до діапазону 0-1
-        y: y / 480,  // Нормалізація до діапазону 0-1
-        color: currentColor,
-        size: currentSize,
-        tool: currentTool,
-        type: 'draw'
-    };
-                
-               strokeBufferRef.current.push(strokeData);
-    setMyDrawingData(prev => [...prev, strokeData]);
-}, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
+                if (!isDrawing || isDrawingLocked || lastXRef.current === null || !ctxRef.current || !canvasBoundsRef.current) return;
+
+                e.preventDefault();
+
+                const rect = canvasBoundsRef.current; // Используем кешированное значение
+
+                // ВИПРАВЛЕНО: Проста нормалізація без DPR
+                const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (640 / rect.width);
+                const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (480 / rect.height);
+
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Малювання лінії
+                ctx.globalCompositeOperation = 'source-over';
+
+                if (currentTool === 'eraser') {
+                    // Рисуем белым цветом
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = currentSize * 2;
+                } else {
+                    // Обычное рисование кистью
+                    ctx.strokeStyle = currentColor;
+                    ctx.lineWidth = currentSize;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(lastXRef.current, lastYRef.current);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                lastXRef.current = x;
+                lastYRef.current = y;
+
+                // ВИПРАВЛЕНО: Відправляємо нормалізовані координати (0-1)
+                const strokeData = {
+                    x: x / 640,  // Нормалізація до діапазону 0-1
+                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    color: currentColor,
+                    size: currentSize,
+                    tool: currentTool,
+                    type: 'draw'
+                };
+
+                strokeBufferRef.current.push(strokeData);
+            }, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
             
             const stopDrawing = () => {
                 if (isDrawing) {
                     setIsDrawing(false);
                     lastXRef.current = null;
                     lastYRef.current = null;
+
                     const strokeData = {
                         type: 'end'
                     };
                     strokeBufferRef.current.push(strokeData);
-                    setMyDrawingData(prev => [...prev, strokeData]);
                 }
             };
             
             const clearCanvas = () => {
-    if (isDrawingLocked) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    // Скидаємо всі налаштування
-    ctx.globalCompositeOperation = 'source-over';
-    
-    // Заповнюємо білим кольором
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 640, 480);
-    
-    setMyDrawingData([]);
-    strokeBufferRef.current = [];
-    
-    if (socket) {
-        socket.emit('clear_canvas');
-    }
-};
+                if (isDrawingLocked || !ctxRef.current) return;
+
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Скидаємо всі налаштування
+                ctx.globalCompositeOperation = 'source-over';
+
+                // Заповнюємо білим кольором
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, 640, 480);
+
+                strokeBufferRef.current = [];
+
+                if (socket) {
+                    socket.emit('clear_canvas');
+                }
+            };
 
             // Обробники для нової системи відгадування
             const createGuess = (wordData, targetPlayerId) => {
@@ -1821,11 +1918,14 @@
                 if (wordAssignments[targetPlayerId]) return; // Вже закріплено
                 if (myGuesses[targetPlayerId]) return; // Вже відгадано
 
-                // Закріплюємо вибір
-                setWordAssignments(prev => ({
-                    ...prev,
-                    [targetPlayerId]: wordData
-                }));
+                console.log(`🎯 User selected: ${wordData.letter}${wordData.number} "${wordData.word}" for player ${targetPlayerId}`);
+
+                // Закріплюємо вибір користувача (для візуальної підказки)
+                setWordAssignments(prev => {
+                    const updated = { ...prev, [targetPlayerId]: wordData };
+                    console.log('💾 wordAssignments set (user choice):', updated);
+                    return updated;
+                });
 
                 // Відправляємо на сервер
                 makeGuess(targetPlayerId, wordData.number);
@@ -2051,7 +2151,7 @@
                                         </div>
                                         
                                         <div className="tool-group">
-                                            <label>Розмір:</label>
+                                            <label>Розмір: <span style={{ color: '#667eea', fontWeight: 'bold' }}>{currentSize}px</span></label>
                                             <div className="size-selector">
                                                 {sizes.map(size => (
                                                     <button
@@ -2132,14 +2232,31 @@
                                                 width={640}
                                                 height={480}
                                                 onMouseDown={startDrawing}
-                                                onMouseMove={draw}
+                                                onMouseMove={(e) => {
+                                                    draw(e);
+                                                    // Обновляем позицию custom cursor без ререндера
+                                                    updateCustomCursor(e.clientX, e.clientY);
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!isDrawingLocked && customCursorRef.current) {
+                                                        showCustomCursorRef.current = true;
+                                                        customCursorRef.current.style.display = 'block';
+                                                        updateCustomCursor(e.clientX, e.clientY);
+                                                    }
+                                                }}
+                                                onMouseLeave={() => {
+                                                    stopDrawing();
+                                                    if (customCursorRef.current) {
+                                                        showCustomCursorRef.current = false;
+                                                        customCursorRef.current.style.display = 'none';
+                                                    }
+                                                }}
                                                 onMouseUp={stopDrawing}
-                                                onMouseLeave={stopDrawing}
                                                 onTouchStart={startDrawing}
                                                 onTouchMove={draw}
                                                 onTouchEnd={stopDrawing}
-                                                style={{ 
-                                                    cursor: isDrawingLocked ? 'not-allowed' : currentTool === 'eraser' ? 'grab' : 'crosshair',
+                                                style={{
+                                                    cursor: isDrawingLocked ? 'not-allowed' : 'none',
                                                     touchAction: 'none'
                                                 }}
                                             />
@@ -2160,6 +2277,7 @@
                                                 guess={myGuesses[player.id]}
                                                 // Нова система відгадування
                                                 wordAssignment={wordAssignments[player.id]}
+                                                guessResult={myGuessResults[player.id]}
                                                 isSelected={selectedPlayer === player.id}
                                                 isHovered={hoveredPlayer === player.id}
                                                 onClick={() => handlePlayerClick(player.id)}
@@ -2186,13 +2304,23 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
-                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
-                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                    // ВИПРАВЛЕНО: Перевіряємо чи це слово - вибір користувача або правильна відповідь
+                                    // 1. Перевіряємо чи користувач вибрав це слово
+                                    const userSelectedPlayerId = Object.keys(wordAssignments).find(
                                         pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
                                     );
-                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
-                                    const isCorrect = guessResult?.correct === true;
-                                    const isIncorrect = guessResult?.correct === false;
+                                    const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
+
+                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
+                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
+                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
+                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    );
+
+                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // Слово неправильне якщо: користувач вибрав і correct=false
+                                    const isIncorrect = userGuessResult?.correct === false;
 
                                     return (
                                         <div
@@ -2228,13 +2356,23 @@
                                     );
                                     const isSelected = selectedWord?.letter === letter && selectedWord?.number === number;
 
-                                    // НОВЕ: Перевіряємо чи це слово - мій guess і чи правильний
-                                    const targetPlayerId = Object.keys(wordAssignments).find(
+                                    // ВИПРАВЛЕНО: Перевіряємо чи це слово - вибір користувача або правильна відповідь
+                                    // 1. Перевіряємо чи користувач вибрав це слово
+                                    const userSelectedPlayerId = Object.keys(wordAssignments).find(
                                         pid => wordAssignments[pid].letter === letter && wordAssignments[pid].number === number
                                     );
-                                    const guessResult = targetPlayerId ? myGuessResults[targetPlayerId] : null;
-                                    const isCorrect = guessResult?.correct === true;
-                                    const isIncorrect = guessResult?.correct === false;
+                                    const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
+
+                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
+                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
+                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
+                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    );
+
+                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // Слово неправильне якщо: користувач вибрав і correct=false
+                                    const isIncorrect = userGuessResult?.correct === false;
 
                                     return (
                                         <div
@@ -2264,6 +2402,22 @@
                     {showScoreRules && (
                         <ScoreRulesModal onClose={() => setShowScoreRules(false)} />
                     )}
+
+                    {/* Custom cursor - всегда в DOM, обновляется напрямую через ref */}
+                    {!isDrawingLocked && (
+                        <div
+                            ref={customCursorRef}
+                            className="custom-cursor pen-cursor"
+                            style={{
+                                display: 'none',
+                                left: 0,
+                                top: 0,
+                                width: currentSize,
+                                height: currentSize,
+                                backgroundColor: currentColor
+                            }}
+                        />
+                    )}
                 </>
             );
         }
@@ -2275,6 +2429,7 @@
             guess,
             // Нова система відгадування
             wordAssignment,
+            guessResult,
             isSelected,
             isHovered,
             onClick,
@@ -2284,88 +2439,124 @@
         }) {
             const canvasRef = useRef(null);
             const [canvasSize] = useState({ width: 240, height: 180 });
-            
+            const lastDrawnIndexRef = useRef(0); // Индекс последнего отрисованного stroke
+            const isDrawingPathRef = useRef(false);
+            const lastXRef = useRef(null);
+            const lastYRef = useRef(null);
+
+            // Инициализация canvas только один раз
             useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // ВИПРАВЛЕНО: Використовуємо фіксовані розміри
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
-    
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    // Білий фон
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-    
-    let isDrawingPath = false;
-    let lastX = null;
-    let lastY = null;
-                
-                drawing.forEach(stroke => {
-        if (stroke.type === 'start') {
-            // ВИПРАВЛЕНО: Координати вже нормалізовані (0-1)
-            const x = stroke.x * canvasSize.width;
-            const y = stroke.y * canvasSize.height;
-            
-            if (stroke.tool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.beginPath();
-                ctx.arc(x, y, stroke.size * (canvasSize.width / 640), 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.globalCompositeOperation = 'source-over';
-            } else {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.fillStyle = stroke.color;
-                ctx.beginPath();
-                ctx.arc(x, y, (stroke.size * (canvasSize.width / 640)) / 2, 0, 2 * Math.PI);
-                ctx.fill();
-            }
-            
-            lastX = x;
-            lastY = y;
-            isDrawingPath = true;
-                    } else if (stroke.type === 'draw' && isDrawingPath && lastX !== null) {
-            // ВИПРАВЛЕНО: Координати вже нормалізовані (0-1)
-            const x = stroke.x * canvasSize.width;
-            const y = stroke.y * canvasSize.height;
-            
-            if (stroke.tool === 'eraser') {
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.lineWidth = stroke.size * 2 * (canvasSize.width / 640);
-            } else {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.strokeStyle = stroke.color;
-                ctx.lineWidth = stroke.size * (canvasSize.width / 640);
-            }
-            
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            
-            lastX = x;
-            lastY = y;
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                // alpha: false безопасно - ластик рисует белым
+                const ctx = canvas.getContext('2d', { alpha: false });
+
+                canvas.width = canvasSize.width;
+                canvas.height = canvasSize.height;
+
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // Білий фон
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+
+                lastDrawnIndexRef.current = 0;
+            }, [canvasSize]); // Только при изменении размера!
+
+            // Инкрементальная отрисовка - только новые strokes
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d', { alpha: false });
+
+                // Проверяем на clear_canvas событие
+                if (drawing.length === 0 && lastDrawnIndexRef.current > 0) {
+                    // Canvas был очищен
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+                    lastDrawnIndexRef.current = 0;
+                    isDrawingPathRef.current = false;
+                    lastXRef.current = null;
+                    lastYRef.current = null;
+                    return;
+                }
+
+                // Рисуем только новые strokes начиная с lastDrawnIndex
+                for (let i = lastDrawnIndexRef.current; i < drawing.length; i++) {
+                    const stroke = drawing[i];
+
+                    if (stroke.type === 'start') {
+                        const x = stroke.x * canvasSize.width;
+                        const y = stroke.y * canvasSize.height;
+
+                        ctx.globalCompositeOperation = 'source-over';
+                        if (stroke.tool === 'eraser') {
+                            // Рисуем белым вместо стирания
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.beginPath();
+                            ctx.arc(x, y, stroke.size * (canvasSize.width / 640), 0, 2 * Math.PI);
+                            ctx.fill();
+                        } else {
+                            ctx.fillStyle = stroke.color;
+                            ctx.beginPath();
+                            ctx.arc(x, y, (stroke.size * (canvasSize.width / 640)) / 2, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+
+                        lastXRef.current = x;
+                        lastYRef.current = y;
+                        isDrawingPathRef.current = true;
+                    } else if (stroke.type === 'draw' && isDrawingPathRef.current && lastXRef.current !== null) {
+                        const x = stroke.x * canvasSize.width;
+                        const y = stroke.y * canvasSize.height;
+
+                        ctx.globalCompositeOperation = 'source-over';
+                        if (stroke.tool === 'eraser') {
+                            // Рисуем белым вместо стирания
+                            ctx.strokeStyle = '#FFFFFF';
+                            ctx.lineWidth = stroke.size * 2 * (canvasSize.width / 640);
+                        } else {
+                            ctx.strokeStyle = stroke.color;
+                            ctx.lineWidth = stroke.size * (canvasSize.width / 640);
+                        }
+
+                        ctx.beginPath();
+                        ctx.moveTo(lastXRef.current, lastYRef.current);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+
+                        lastXRef.current = x;
+                        lastYRef.current = y;
                     } else if (stroke.type === 'end') {
-            isDrawingPath = false;
-            lastX = null;
-            lastY = null;
-            ctx.globalCompositeOperation = 'source-over';
-        }
-    });
-}, [drawing, canvasSize]);
-            
+                        isDrawingPathRef.current = false;
+                        lastXRef.current = null;
+                        lastYRef.current = null;
+                        ctx.globalCompositeOperation = 'source-over';
+                    }
+                }
+
+                // Обновляем индекс последнего отрисованного stroke
+                lastDrawnIndexRef.current = drawing.length;
+            }, [drawing, canvasSize]);
+
             const hasAssignment = wordAssignment !== undefined;
+            // НОВЕ: Визначаємо чи відповідь правильна/неправильна
+            const isCorrect = guessResult?.correct === true;
+            const isIncorrect = guessResult?.correct === false;
+
+            // ВИПРАВЛЕНО: Показуємо правильне слово від сервера, а не вибір користувача
+            const displayWord = guessResult?.targetAssignment?.word || wordAssignment?.word;
+            // Колір тексту залежить від правильності
+            const wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
 
             return (
                 <div
-                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''}`}
+                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                     data-player-id={player.id}
                     onClick={onClick}
                     onDragOver={onDragOver}
@@ -2380,11 +2571,11 @@
                         {hasAssignment && (
                             <div style={{
                                 fontSize: '0.75em',
-                                color: '#4caf50',
+                                color: wordColor,
                                 marginTop: '2px',
                                 fontWeight: '600'
                             }}>
-                                {wordAssignment.word}
+                                {displayWord}
                             </div>
                         )}
                     </div>

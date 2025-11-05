@@ -284,6 +284,8 @@ class GameRoom {
           number,
           word
         });
+
+        console.log(`  📋 Assignment: Player ${playerId} → ${letter}${number} "${word}"`);
       }
       
       this.roundData = {
@@ -381,8 +383,29 @@ class GameRoom {
     const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
     if (usedNumbers.has(number)) return false;
 
-    // Перевіряємо правильність
-    const correct = this.roundData.assignments.get(targetId).number === number;
+    // DEBUG: Виводимо повну інформацію про здогадку
+    const targetAssignment = this.roundData.assignments.get(targetId);
+    const guesserAssignment = this.roundData.assignments.get(guesserId);
+
+    console.log(`\n🔍 GUESS DEBUG:`);
+    console.log(`  Guesser: ${guesserId} (has: ${guesserAssignment?.letter}${guesserAssignment?.number} "${guesserAssignment?.word}")`);
+    console.log(`  Target: ${targetId} (has: ${targetAssignment?.letter}${targetAssignment?.number} "${targetAssignment?.word}")`);
+    console.log(`  Guessed number: ${number} (type: ${typeof number})`);
+    console.log(`  Target number: ${targetAssignment?.number} (type: ${typeof targetAssignment?.number})`);
+    console.log(`  Comparison: ${number} === ${targetAssignment?.number} = ${number === targetAssignment?.number}`);
+    console.log(`  Loose comparison: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
+
+    // Выводим ВСЕ assignments для контекста
+    console.log(`\n  📋 ALL ASSIGNMENTS IN THIS ROUND:`);
+    for (let [pid, assignment] of this.roundData.assignments) {
+      const marker = pid === guesserId ? '👉' : (pid === targetId ? '🎯' : '  ');
+      console.log(`    ${marker} ${pid}: ${assignment.letter}${assignment.number} "${assignment.word}"`);
+    }
+
+    // Перевіряємо правильність - ВИКОРИСТОВУЄМО LOOSE COMPARISON на випадок string vs number
+    const correct = targetAssignment && (number == targetAssignment.number);
+
+    console.log(`  RESULT: ${correct ? '✅ CORRECT' : '❌ INCORRECT'}\n`);
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
@@ -394,8 +417,12 @@ class GameRoom {
     // Блокуємо малюнок після першої здогадки
     this.lockDrawing(targetId, 'first_guess');
 
-    // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом
-    return { success: true, correct };
+    // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом + правильне assignment для клієнта
+    return {
+      success: true,
+      correct,
+      targetAssignment: targetAssignment  // Відправляємо правильне слово клієнту
+    };
   }
 
   finishGuessing(playerId) {
@@ -650,9 +677,16 @@ io.on('connection', (socket) => {
     const result = room.makeGuess(currentPlayerId, targetId, number);
 
     if (result && result.success) {
-      // ВИПРАВЛЕНО: Додаємо correct до відповіді (тільки для гравця що відгадував)
+      // ВИПРАВЛЕНО: Додаємо correct та правильне assignment до відповіді
       console.log(`✅ Player ${currentPlayerId} guessed ${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
-      socket.emit('guess_accepted', { targetId, number, correct: result.correct });
+
+      socket.emit('guess_accepted', {
+        targetId,
+        number,
+        correct: result.correct,
+        // Відправляємо правильне assignment (letter, number, word) щоб клієнт знав яке слово насправді загадане
+        targetAssignment: result.targetAssignment
+      });
 
       // Повідомляємо про блокування малюнка
       io.to(currentRoomCode).emit('drawing_locked', {
