@@ -284,6 +284,8 @@ class GameRoom {
           number,
           word
         });
+
+        console.log(`  📋 Assignment: Player ${playerId} → ${letter}${number} "${word}"`);
       }
       
       this.roundData = {
@@ -383,14 +385,22 @@ class GameRoom {
 
     // DEBUG: Виводимо повну інформацію про здогадку
     const targetAssignment = this.roundData.assignments.get(targetId);
+    const guesserAssignment = this.roundData.assignments.get(guesserId);
+
     console.log(`\n🔍 GUESS DEBUG:`);
-    console.log(`  Guesser: ${guesserId}`);
-    console.log(`  Target: ${targetId}`);
+    console.log(`  Guesser: ${guesserId} (has: ${guesserAssignment?.letter}${guesserAssignment?.number} "${guesserAssignment?.word}")`);
+    console.log(`  Target: ${targetId} (has: ${targetAssignment?.letter}${targetAssignment?.number} "${targetAssignment?.word}")`);
     console.log(`  Guessed number: ${number} (type: ${typeof number})`);
-    console.log(`  Target assignment:`, targetAssignment);
     console.log(`  Target number: ${targetAssignment?.number} (type: ${typeof targetAssignment?.number})`);
     console.log(`  Comparison: ${number} === ${targetAssignment?.number} = ${number === targetAssignment?.number}`);
     console.log(`  Loose comparison: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
+
+    // Выводим ВСЕ assignments для контекста
+    console.log(`\n  📋 ALL ASSIGNMENTS IN THIS ROUND:`);
+    for (let [pid, assignment] of this.roundData.assignments) {
+      const marker = pid === guesserId ? '👉' : (pid === targetId ? '🎯' : '  ');
+      console.log(`    ${marker} ${pid}: ${assignment.letter}${assignment.number} "${assignment.word}"`);
+    }
 
     // Перевіряємо правильність - ВИКОРИСТОВУЄМО LOOSE COMPARISON на випадок string vs number
     const correct = targetAssignment && (number == targetAssignment.number);
