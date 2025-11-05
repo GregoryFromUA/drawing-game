@@ -381,8 +381,21 @@ class GameRoom {
     const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
     if (usedNumbers.has(number)) return false;
 
-    // Перевіряємо правильність
-    const correct = this.roundData.assignments.get(targetId).number === number;
+    // DEBUG: Виводимо повну інформацію про здогадку
+    const targetAssignment = this.roundData.assignments.get(targetId);
+    console.log(`\n🔍 GUESS DEBUG:`);
+    console.log(`  Guesser: ${guesserId}`);
+    console.log(`  Target: ${targetId}`);
+    console.log(`  Guessed number: ${number} (type: ${typeof number})`);
+    console.log(`  Target assignment:`, targetAssignment);
+    console.log(`  Target number: ${targetAssignment?.number} (type: ${typeof targetAssignment?.number})`);
+    console.log(`  Comparison: ${number} === ${targetAssignment?.number} = ${number === targetAssignment?.number}`);
+    console.log(`  Loose comparison: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
+
+    // Перевіряємо правильність - ВИКОРИСТОВУЄМО LOOSE COMPARISON на випадок string vs number
+    const correct = targetAssignment && (number == targetAssignment.number);
+
+    console.log(`  RESULT: ${correct ? '✅ CORRECT' : '❌ INCORRECT'}\n`);
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
