@@ -1181,16 +1181,6 @@
                 });
                 
                 newSocket.on('round_started', (data) => {
-                    // DEBUG: Виводимо що отримали від сервера
-                    console.log('\n📥 CLIENT RECEIVED round_started:');
-                    console.log('  Round:', data.round);
-                    console.log('  WordSet A:', data.wordSet?.A);
-                    console.log('  WordSet B:', data.wordSet?.B);
-                    console.log('  WordSet C:', data.wordSet?.C);
-                    console.log('  WordSet D:', data.wordSet?.D);
-                    console.log('  Personal assignment:', data.personalAssignment);
-                    console.log('  Full data:', data);
-
                     setRoundData(data);
                     setGameState('playing');
                     setDrawings({});
@@ -1220,10 +1210,22 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number, correct }) => {
-                    console.log('✅ guess_accepted:', { targetId, number, correct }); // DEBUG
+                newSocket.on('guess_accepted', ({ targetId, number, correct, targetAssignment }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, correct, targetAssignment }); // DEBUG
                     setMyGuesses(prev => ({ ...prev, [targetId]: number }));
                     setUsedNumbers(prev => new Set([...prev, number]));
+
+                    // ВИПРАВЛЕНО: Використовуємо правильне assignment від сервера, а не те що вибрав користувач
+                    if (targetAssignment) {
+                        setWordAssignments(prev => ({
+                            ...prev,
+                            [targetId]: {
+                                letter: targetAssignment.letter,
+                                number: targetAssignment.number,
+                                word: targetAssignment.word
+                            }
+                        }));
+                    }
 
                     // НОВЕ: Зберігаємо правильність здогадки
                     setMyGuessResults(prev => {
@@ -1919,11 +1921,12 @@
                 if (wordAssignments[targetPlayerId]) return; // Вже закріплено
                 if (myGuesses[targetPlayerId]) return; // Вже відгадано
 
-                // Закріплюємо вибір
-                setWordAssignments(prev => ({
-                    ...prev,
-                    [targetPlayerId]: wordData
-                }));
+                // ВИПРАВЛЕНО: НЕ закріплюємо вибір локально, чекаємо на відповідь від сервера
+                // Сервер поверне правильне assignment в guess_accepted
+                // setWordAssignments(prev => ({
+                //     ...prev,
+                //     [targetPlayerId]: wordData
+                // }));
 
                 // Відправляємо на сервер
                 makeGuess(targetPlayerId, wordData.number);

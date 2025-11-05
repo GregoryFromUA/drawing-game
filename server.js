@@ -417,8 +417,12 @@ class GameRoom {
     // Блокуємо малюнок після першої здогадки
     this.lockDrawing(targetId, 'first_guess');
 
-    // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом
-    return { success: true, correct };
+    // ВИПРАВЛЕНО: Повертаємо об'єкт з результатом + правильне assignment для клієнта
+    return {
+      success: true,
+      correct,
+      targetAssignment: targetAssignment  // Відправляємо правильне слово клієнту
+    };
   }
 
   finishGuessing(playerId) {
@@ -618,15 +622,6 @@ io.on('connection', (socket) => {
       // Відправляємо кожному гравцю його персональне завдання
       for (let [playerId, player] of room.players) {
         const assignment = roundData.assignments.get(playerId);
-
-        // DEBUG: Виводимо wordSet що відправляється клієнту
-        console.log(`\n📤 Sending to player ${playerId}:`);
-        console.log(`  WordSet A:`, roundData.wordSet.A);
-        console.log(`  WordSet B:`, roundData.wordSet.B);
-        console.log(`  WordSet C:`, roundData.wordSet.C);
-        console.log(`  WordSet D:`, roundData.wordSet.D);
-        console.log(`  Personal assignment: ${assignment.letter}${assignment.number} "${assignment.word}"`);
-
         io.to(player.socketId).emit('round_started', {
           round: roundData.round,
           wordSet: roundData.wordSet,
@@ -682,9 +677,16 @@ io.on('connection', (socket) => {
     const result = room.makeGuess(currentPlayerId, targetId, number);
 
     if (result && result.success) {
-      // ВИПРАВЛЕНО: Додаємо correct до відповіді (тільки для гравця що відгадував)
+      // ВИПРАВЛЕНО: Додаємо correct та правильне assignment до відповіді
       console.log(`✅ Player ${currentPlayerId} guessed ${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
-      socket.emit('guess_accepted', { targetId, number, correct: result.correct });
+
+      socket.emit('guess_accepted', {
+        targetId,
+        number,
+        correct: result.correct,
+        // Відправляємо правильне assignment (letter, number, word) щоб клієнт знав яке слово насправді загадане
+        targetAssignment: result.targetAssignment
+      });
 
       // Повідомляємо про блокування малюнка
       io.to(currentRoomCode).emit('drawing_locked', {
