@@ -6,6 +6,7 @@ const cors = require('cors');
 
 // Імпортуємо картки завдань з окремого файлу
 const WORD_SETS = require('./wordSets.js');
+const FAKE_ARTIST_THEMES = require('./fakeArtistThemes.js');
 
 const app = express();
 const server = http.createServer(app);
@@ -522,6 +523,549 @@ class GameRoom {
   }
 }
 
+// Клас для управління грою Unicorn Canvas (Fake Artist)
+class FakeArtistGame {
+  constructor(code, hostId) {
+    this.code = code;
+    this.hostId = hostId;
+    this.players = new Map(); // playerId -> {id, name, socketId, connected, color}
+    this.state = 'lobby'; // lobby, theme_selection, drawing, voting_fake, fake_guessing, voting_answer, round_end, game_end
+    this.mode = 'unicorn_canvas';
+
+    // Вибір тем
+    this.themeSelectionTimer = null;
+    this.playerThemeVotes = new Map(); // playerId -> [theme1, theme2, ...]
+    this.availableThemes = Object.keys(FAKE_ARTIST_THEMES);
+    this.selectedThemesPool = []; // Пул тем обраних гравцями
+    this.usedThemes = []; // Використані теми (без повторів)
+
+    // Раунд
+    this.currentRound = 0;
+    this.currentTheme = null;
+    this.currentWord = null;
+    this.fakeArtistId = null;
+    this.playerCards = new Map(); // playerId -> {word: string, isFake: boolean}
+
+    // Малювання
+    this.sharedDrawing = []; // Масив штрихів від усіх гравців
+    this.currentTurnIndex = 0;
+    this.turnOrder = []; // Порядок гравців
+    this.currentDrawingRound = 1; // 1 або 2 (кожен робить по 2 штрихи)
+    this.turnTimer = null;
+    this.playerColors = new Map(); // playerId -> color
+
+    // Голосування за підробного
+    this.votesForFake = new Map(); // playerId -> suspectId
+    this.votingTimer = null;
+
+    // Відгадування слова підробним
+    this.fakeGuess = null;
+    this.guessTimer = null;
+
+    // Голосування за правильність відповіді
+    this.votesForCorrectness = new Map(); // playerId -> boolean (true = правильно)
+
+    // Очки
+    this.scores = new Map(); // playerId -> score
+
+    this.readyPlayers = new Set();
+  }
+
+  cleanup() {
+    // Очищаємо таймери
+    if (this.themeSelectionTimer) clearTimeout(this.themeSelectionTimer);
+    if (this.turnTimer) clearTimeout(this.turnTimer);
+    if (this.votingTimer) clearTimeout(this.votingTimer);
+    if (this.guessTimer) clearTimeout(this.guessTimer);
+
+    // Очищаємо Map та Set
+    this.players.clear();
+    this.playerThemeVotes.clear();
+    this.playerCards.clear();
+    this.playerColors.clear();
+    this.votesForFake.clear();
+    this.votesForCorrectness.clear();
+    this.scores.clear();
+    this.readyPlayers.clear();
+
+    // Очищаємо масиви
+    this.sharedDrawing = [];
+    this.turnOrder = [];
+    this.selectedThemesPool = [];
+    this.usedThemes = [];
+
+    console.log(`FakeArtistGame ${this.code} cleaned up`);
+  }
+
+  addPlayer(id, name, socketId) {
+    if (this.players.size >= MAX_PLAYERS) return false;
+
+    // Reconnect
+    if (this.players.has(id)) {
+      const player = this.players.get(id);
+      player.socketId = socketId;
+      player.connected = true;
+      return true;
+    }
+
+    // Новий гравець
+    const color = this.assignColor();
+    this.players.set(id, {
+      id,
+      name,
+      socketId,
+      connected: true,
+      color
+    });
+    this.playerColors.set(id, color);
+    this.scores.set(id, 0);
+
+    return true;
+  }
+
+  assignColor() {
+    const colors = [
+      '#FF0000', '#0000FF', '#00FF00', '#FFFF00',
+      '#FF00FF', '#00FFFF', '#FFA500', '#800080',
+      '#008000', '#800000', '#000080', '#808000'
+    ];
+    return colors[this.players.size % colors.length];
+  }
+
+  removePlayer(id) {
+    const player = this.players.get(id);
+    if (!player) return;
+
+    player.connected = false;
+
+    // Якщо це хост, передаємо роль іншому гравцю
+    if (this.hostId === id) {
+      for (let [playerId, p] of this.players) {
+        if (p.connected && playerId !== id) {
+          this.hostId = playerId;
+          break;
+        }
+      }
+    }
+  }
+
+  toggleReady(playerId) {
+    if (this.readyPlayers.has(playerId)) {
+      this.readyPlayers.delete(playerId);
+    } else {
+      this.readyPlayers.add(playerId);
+    }
+  }
+
+  // Початок вибору тем
+  startThemeSelection() {
+    this.state = 'theme_selection';
+    this.playerThemeVotes.clear();
+
+    // Таймер 30 секунд
+    this.themeSelectionTimer = setTimeout(() => {
+      this.finishThemeSelection();
+    }, 30000);
+  }
+
+  submitThemeVotes(playerId, selectedThemes) {
+    // Максимум 5 тем
+    const themes = selectedThemes.slice(0, 5);
+    this.playerThemeVotes.set(playerId, themes);
+
+    // Якщо всі проголосували, завершуємо достроково
+    if (this.playerThemeVotes.size === this.players.size) {
+      if (this.themeSelectionTimer) {
+        clearTimeout(this.themeSelectionTimer);
+        this.themeSelectionTimer = null;
+      }
+      this.finishThemeSelection();
+    }
+  }
+
+  finishThemeSelection() {
+    // Збираємо всі унікальні теми
+    const allVotedThemes = new Set();
+    for (let themes of this.playerThemeVotes.values()) {
+      themes.forEach(theme => allVotedThemes.add(theme));
+    }
+
+    this.selectedThemesPool = Array.from(allVotedThemes);
+
+    // Якщо менше 5 тем, додаємо випадкові
+    if (this.selectedThemesPool.length < 5) {
+      const remainingThemes = this.availableThemes.filter(t => !this.selectedThemesPool.includes(t));
+      while (this.selectedThemesPool.length < 5 && remainingThemes.length > 0) {
+        const randomIndex = Math.floor(Math.random() * remainingThemes.length);
+        this.selectedThemesPool.push(remainingThemes[randomIndex]);
+        remainingThemes.splice(randomIndex, 1);
+      }
+    }
+
+    console.log(`Theme pool: ${this.selectedThemesPool.join(', ')}`);
+
+    // Починаємо перший раунд
+    this.startRound();
+  }
+
+  // Початок раунду
+  startRound() {
+    this.currentRound++;
+
+    // Вибираємо випадкову тему з пулу (без повторів)
+    const availableThemesForRound = this.selectedThemesPool.filter(t => !this.usedThemes.includes(t));
+
+    if (availableThemesForRound.length === 0) {
+      // Всі теми використані, можна почати повторювати
+      this.usedThemes = [];
+      this.currentTheme = this.selectedThemesPool[Math.floor(Math.random() * this.selectedThemesPool.length)];
+    } else {
+      this.currentTheme = availableThemesForRound[Math.floor(Math.random() * availableThemesForRound.length)];
+    }
+
+    this.usedThemes.push(this.currentTheme);
+
+    // Вибираємо випадкове слово з теми
+    const words = FAKE_ARTIST_THEMES[this.currentTheme];
+    this.currentWord = words[Math.floor(Math.random() * words.length)];
+
+    // Вибираємо підробного художника (випадково)
+    const playerIds = Array.from(this.players.keys()).filter(id => this.players.get(id).connected);
+    this.fakeArtistId = playerIds[Math.floor(Math.random() * playerIds.length)];
+
+    // Роздаємо карточки
+    this.playerCards.clear();
+    for (let playerId of playerIds) {
+      if (playerId === this.fakeArtistId) {
+        this.playerCards.set(playerId, { word: 'X', isFake: true });
+      } else {
+        this.playerCards.set(playerId, { word: this.currentWord, isFake: false });
+      }
+    }
+
+    // Визначаємо порядок ходів (випадково перший, потім по колу)
+    this.turnOrder = [...playerIds];
+    const firstPlayerIndex = Math.floor(Math.random() * this.turnOrder.length);
+    this.turnOrder = [...this.turnOrder.slice(firstPlayerIndex), ...this.turnOrder.slice(0, firstPlayerIndex)];
+
+    this.currentTurnIndex = 0;
+    this.currentDrawingRound = 1;
+    this.sharedDrawing = [];
+
+    this.state = 'drawing';
+
+    // Запускаємо таймер для першого ходу
+    this.startTurnTimer();
+
+    console.log(`Round ${this.currentRound}: Theme=${this.currentTheme}, Word=${this.currentWord}, Fake=${this.fakeArtistId}`);
+  }
+
+  startTurnTimer() {
+    if (this.turnTimer) clearTimeout(this.turnTimer);
+
+    this.turnTimer = setTimeout(() => {
+      // Час вичерпано, переходимо до наступного гравця
+      this.nextTurn();
+    }, 60000); // 60 секунд
+  }
+
+  addDrawingStroke(playerId, stroke) {
+    const currentPlayerId = this.turnOrder[this.currentTurnIndex];
+    if (playerId !== currentPlayerId) {
+      return false; // Не твій хід
+    }
+
+    // Додаємо штрих до загального малюнка
+    this.sharedDrawing.push({
+      ...stroke,
+      playerId,
+      color: this.playerColors.get(playerId)
+    });
+
+    return true;
+  }
+
+  finishTurn(playerId) {
+    const currentPlayerId = this.turnOrder[this.currentTurnIndex];
+    if (playerId !== currentPlayerId) {
+      return false;
+    }
+
+    this.nextTurn();
+    return true;
+  }
+
+  nextTurn() {
+    if (this.turnTimer) {
+      clearTimeout(this.turnTimer);
+      this.turnTimer = null;
+    }
+
+    this.currentTurnIndex++;
+
+    // Перевіряємо чи всі зробили ходи в цьому раунді
+    if (this.currentTurnIndex >= this.turnOrder.length) {
+      this.currentTurnIndex = 0;
+      this.currentDrawingRound++;
+
+      // Якщо обидва раунди завершені, переходимо до голосування
+      if (this.currentDrawingRound > 2) {
+        this.startVotingForFake();
+        return;
+      }
+    }
+
+    // Запускаємо таймер для наступного ходу
+    this.startTurnTimer();
+  }
+
+  // Голосування за підробного
+  startVotingForFake() {
+    this.state = 'voting_fake';
+    this.votesForFake.clear();
+
+    // Таймер 10 секунд
+    this.votingTimer = setTimeout(() => {
+      this.finishVotingForFake();
+    }, 10000);
+  }
+
+  submitVoteForFake(playerId, suspectId) {
+    this.votesForFake.set(playerId, suspectId);
+
+    // Якщо всі проголосували, завершуємо
+    if (this.votesForFake.size === this.players.size) {
+      if (this.votingTimer) {
+        clearTimeout(this.votingTimer);
+        this.votingTimer = null;
+      }
+      this.finishVotingForFake();
+    }
+  }
+
+  finishVotingForFake() {
+    if (this.votingTimer) {
+      clearTimeout(this.votingTimer);
+      this.votingTimer = null;
+    }
+
+    // Підраховуємо голоси
+    const voteCounts = new Map();
+    for (let suspectId of this.votesForFake.values()) {
+      voteCounts.set(suspectId, (voteCounts.get(suspectId) || 0) + 1);
+    }
+
+    // Знаходимо кандидатів з максимальною кількістю голосів
+    let maxVotes = 0;
+    let suspects = [];
+
+    for (let [suspectId, count] of voteCounts) {
+      if (count > maxVotes) {
+        maxVotes = count;
+        suspects = [suspectId];
+      } else if (count === maxVotes) {
+        suspects.push(suspectId);
+      }
+    }
+
+    // Перевіряємо результати голосування
+    const fakeIsCaught = suspects.includes(this.fakeArtistId);
+    const isTie = suspects.length > 1;
+
+    if (!fakeIsCaught) {
+      // Підробний не спійманий (або не отримав більшості) - автоматична перемога
+      this.awardPoints('fake_not_caught');
+      this.endRound({ fakeIsCaught: false, fakeWins: true });
+    } else if (fakeIsCaught && !isTie) {
+      // Підробний спійманий (отримав більшість) - дозволяємо йому вгадати слово
+      this.state = 'fake_guessing';
+      this.startGuessTimer();
+    } else if (fakeIsCaught && isTie) {
+      // Нічия і підробний серед підозрюваних - дозволяємо вгадати
+      this.state = 'fake_guessing';
+      this.startGuessTimer();
+    }
+  }
+
+  startGuessTimer() {
+    this.guessTimer = setTimeout(() => {
+      // Час вичерпано, підробний не встиг відповісти
+      this.finishGuessing(null);
+    }, 60000); // 60 секунд
+  }
+
+  submitGuess(playerId, guess) {
+    if (playerId !== this.fakeArtistId) return false;
+
+    this.fakeGuess = guess;
+
+    if (this.guessTimer) {
+      clearTimeout(this.guessTimer);
+      this.guessTimer = null;
+    }
+
+    this.finishGuessing(guess);
+    return true;
+  }
+
+  finishGuessing(guess) {
+    if (this.guessTimer) {
+      clearTimeout(this.guessTimer);
+      this.guessTimer = null;
+    }
+
+    if (!guess) {
+      // Підробний не відповів - художники перемагають
+      this.awardPoints('fake_caught_wrong');
+      this.endRound({ fakeIsCaught: true, fakeWins: false, guessCorrect: false });
+      return;
+    }
+
+    // Голосування за правильність відповіді
+    this.state = 'voting_answer';
+    this.votesForCorrectness.clear();
+
+    // Таймер не потрібен для цього голосування (швидке)
+    setTimeout(() => {
+      this.checkVotingAnswerProgress();
+    }, 15000); // 15 секунд для голосування
+  }
+
+  submitVoteForCorrectness(playerId, isCorrect) {
+    // Підробний не голосує
+    if (playerId === this.fakeArtistId) return false;
+
+    this.votesForCorrectness.set(playerId, isCorrect);
+    this.checkVotingAnswerProgress();
+    return true;
+  }
+
+  checkVotingAnswerProgress() {
+    // Рахуємо скільки гравців (окрім підробного) повинні проголосувати
+    const totalVoters = this.players.size - 1; // Всі крім підробного
+
+    if (this.votesForCorrectness.size >= totalVoters) {
+      this.finishVotingForCorrectness();
+    }
+  }
+
+  finishVotingForCorrectness() {
+    // Підраховуємо голоси (тільки художників, МВ не було)
+    let correctVotes = 0;
+    let incorrectVotes = 0;
+
+    for (let [playerId, vote] of this.votesForCorrectness) {
+      if (vote) {
+        correctVotes++;
+      } else {
+        incorrectVotes++;
+      }
+    }
+
+    // Якщо нічия - не враховуємо голос МВ (його немає), художники вирішують
+    const isCorrect = correctVotes > incorrectVotes;
+
+    if (isCorrect) {
+      // Відповідь правильна - підробний і МВ перемагають
+      this.awardPoints('fake_caught_correct');
+      this.endRound({ fakeIsCaught: true, fakeWins: true, guessCorrect: true });
+    } else {
+      // Відповідь неправильна - художники перемагають
+      this.awardPoints('fake_caught_wrong');
+      this.endRound({ fakeIsCaught: true, fakeWins: false, guessCorrect: false });
+    }
+  }
+
+  awardPoints(scenario) {
+    switch (scenario) {
+      case 'fake_not_caught':
+        // Підробний не спійманий: підробний +2
+        this.scores.set(this.fakeArtistId, this.scores.get(this.fakeArtistId) + 2);
+        break;
+
+      case 'fake_caught_correct':
+        // Підробний спійманий, але вгадав: підробний +2
+        this.scores.set(this.fakeArtistId, this.scores.get(this.fakeArtistId) + 2);
+        break;
+
+      case 'fake_caught_wrong':
+        // Підробний спійманий і не вгадав: всі художники +1
+        for (let playerId of this.players.keys()) {
+          if (playerId !== this.fakeArtistId) {
+            this.scores.set(playerId, this.scores.get(playerId) + 1);
+          }
+        }
+        break;
+    }
+  }
+
+  endRound(results) {
+    this.state = 'round_end';
+
+    // Зберігаємо результати для показу
+    this.roundResults = {
+      ...results,
+      fakeArtistId: this.fakeArtistId,
+      word: this.currentWord,
+      theme: this.currentTheme,
+      scores: Object.fromEntries(this.scores)
+    };
+
+    // Перевіряємо чи хтось набрав 5 очків
+    let winner = null;
+    for (let [playerId, score] of this.scores) {
+      if (score >= 5) {
+        winner = playerId;
+        break;
+      }
+    }
+
+    if (winner) {
+      this.state = 'game_end';
+      this.winner = winner;
+    }
+  }
+
+  getState() {
+    const playerList = Array.from(this.players.values()).map(p => ({
+      id: p.id,
+      name: p.name,
+      connected: p.connected,
+      ready: this.readyPlayers.has(p.id),
+      color: p.color
+    }));
+
+    return {
+      code: this.code,
+      mode: this.mode,
+      state: this.state,
+      players: playerList,
+      scores: Object.fromEntries(this.scores),
+      hostId: this.hostId,
+      currentRound: this.currentRound,
+
+      // Theme selection
+      availableThemes: this.state === 'theme_selection' ? this.availableThemes : undefined,
+
+      // Drawing phase
+      currentTheme: this.state === 'drawing' || this.state === 'voting_fake' || this.state === 'fake_guessing' || this.state === 'voting_answer' || this.state === 'round_end' ? this.currentTheme : undefined,
+      sharedDrawing: this.sharedDrawing,
+      turnOrder: this.state === 'drawing' ? this.turnOrder : undefined,
+      currentTurnIndex: this.state === 'drawing' ? this.currentTurnIndex : undefined,
+      currentDrawingRound: this.state === 'drawing' ? this.currentDrawingRound : undefined,
+
+      // Voting
+      votingResults: this.state === 'round_end' || this.state === 'game_end' ? this.roundResults : undefined,
+
+      // Fake guessing
+      fakeGuess: this.state === 'voting_answer' || this.state === 'round_end' ? this.fakeGuess : undefined,
+
+      // Game end
+      winner: this.state === 'game_end' ? this.winner : undefined
+    };
+  }
+}
+
 // Зберігання кімнат
 const rooms = new Map();
 const playerRooms = new Map(); // playerId -> roomCode
@@ -534,23 +1078,30 @@ io.on('connection', (socket) => {
   let currentRoomCode = null;
   
   // Створення кімнати
-  socket.on('create_room', ({ playerName }) => {
+  socket.on('create_room', ({ playerName, mode }) => {
     const roomCode = generateRoomCode();
     const playerId = socket.id;
-    const room = new GameRoom(roomCode, playerId);
-    
+
+    // Створюємо кімнату відповідного типу
+    let room;
+    if (mode === 'unicorn_canvas') {
+      room = new FakeArtistGame(roomCode, playerId);
+    } else {
+      room = new GameRoom(roomCode, playerId);
+    }
+
     room.addPlayer(playerId, playerName, socket.id);
     rooms.set(roomCode, room);
     playerRooms.set(playerId, roomCode);
-    
+
     currentPlayerId = playerId;
     currentRoomCode = roomCode;
-    
+
     socket.join(roomCode);
-    socket.emit('room_created', { 
-      roomCode, 
+    socket.emit('room_created', {
+      roomCode,
       playerId,
-      state: room.getState() 
+      state: room.getState()
     });
   });
   
@@ -609,16 +1160,34 @@ io.on('connection', (socket) => {
   socket.on('start_game', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || currentPlayerId !== room.hostId) return;
-    
+
+    // Unicorn Canvas (Fake Artist) режим
+    if (room.mode === 'unicorn_canvas') {
+      if (room.players.size < 3) {
+        socket.emit('error', { message: 'Потрібно мінімум 3 гравці' });
+        return;
+      }
+
+      // Починаємо вибір тем
+      room.startThemeSelection();
+
+      io.to(currentRoomCode).emit('theme_selection_started', {
+        availableThemes: room.availableThemes,
+        state: room.getState()
+      });
+      return;
+    }
+
+    // Doodle Prophet режим (оригінальна логіка)
     if (room.canStartGame()) {
       const roundData = room.startNewRound();
-      
+
       // НОВЕ: Перевіряємо чи вдалося почати раунд
       if (!roundData) {
         console.log('Round already starting, ignoring duplicate request');
         return;
       }
-      
+
       // Відправляємо кожному гравцю його персональне завдання
       for (let [playerId, player] of room.players) {
         const assignment = roundData.assignments.get(playerId);
@@ -779,7 +1348,210 @@ io.on('connection', (socket) => {
     
     io.to(currentRoomCode).emit('game_reset', room.getState());
   });
-  
+
+  // ========== UNICORN CANVAS (FAKE ARTIST) EVENTS ==========
+
+  // Вибір тем
+  socket.on('submit_theme_votes', ({ selectedThemes }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas') return;
+
+    room.submitThemeVotes(currentPlayerId, selectedThemes);
+
+    // Перевіряємо чи всі проголосували
+    if (room.playerThemeVotes.size === room.players.size) {
+      // Автоматично завершуємо вибір
+      io.to(currentRoomCode).emit('all_themes_submitted');
+    }
+  });
+
+  // Коли вибір тем завершено і раунд починається
+  socket.on('themes_finalized', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
+
+    // Відправляємо кожному його карточку
+    for (let [playerId, player] of room.players) {
+      const card = room.playerCards.get(playerId);
+      io.to(player.socketId).emit('round_started_unicorn', {
+        round: room.currentRound,
+        theme: room.currentTheme,
+        card: card,
+        turnOrder: room.turnOrder,
+        currentTurnIndex: room.currentTurnIndex,
+        currentDrawingRound: room.currentDrawingRound,
+        state: room.getState()
+      });
+    }
+  });
+
+  // Малювання (штрих)
+  socket.on('unicorn_drawing_stroke', ({ stroke }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
+
+    const success = room.addDrawingStroke(currentPlayerId, stroke);
+    if (success) {
+      // Broadcast штрих всім
+      io.to(currentRoomCode).emit('drawing_stroke_added', {
+        stroke: {
+          ...stroke,
+          playerId: currentPlayerId,
+          color: room.playerColors.get(currentPlayerId)
+        },
+        sharedDrawing: room.sharedDrawing
+      });
+    }
+  });
+
+  // Завершення штриху (гравець відпустив мишу)
+  socket.on('stroke_finished', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
+
+    const success = room.finishTurn(currentPlayerId);
+    if (success) {
+      // Переходимо до наступного ходу
+      if (room.state === 'voting_fake') {
+        // Малювання завершено, починаємо голосування
+        io.to(currentRoomCode).emit('voting_for_fake_started', {
+          state: room.getState()
+        });
+      } else {
+        // Наступний гравець малює
+        io.to(currentRoomCode).emit('next_turn', {
+          currentTurnIndex: room.currentTurnIndex,
+          currentDrawingRound: room.currentDrawingRound,
+          currentPlayerId: room.turnOrder[room.currentTurnIndex],
+          state: room.getState()
+        });
+      }
+    }
+  });
+
+  // Таймер ходу вийшов
+  socket.on('turn_timeout', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
+    if (currentPlayerId !== room.turnOrder[room.currentTurnIndex]) return;
+
+    room.nextTurn();
+
+    if (room.state === 'voting_fake') {
+      io.to(currentRoomCode).emit('voting_for_fake_started', {
+        state: room.getState()
+      });
+    } else {
+      io.to(currentRoomCode).emit('next_turn', {
+        currentTurnIndex: room.currentTurnIndex,
+        currentDrawingRound: room.currentDrawingRound,
+        currentPlayerId: room.turnOrder[room.currentTurnIndex],
+        state: room.getState()
+      });
+    }
+  });
+
+  // Голосування за підробного художника
+  socket.on('vote_fake_artist', ({ suspectId }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'voting_fake') return;
+
+    room.submitVoteForFake(currentPlayerId, suspectId);
+
+    // Перевіряємо чи всі проголосували
+    if (room.votesForFake.size === room.players.size) {
+      io.to(currentRoomCode).emit('all_votes_submitted');
+    }
+  });
+
+  // Коли голосування завершено
+  socket.on('voting_fake_finished', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas') return;
+
+    if (room.state === 'fake_guessing') {
+      // Підробний повинен вгадати слово
+      io.to(currentRoomCode).emit('fake_guessing_started', {
+        fakeArtistId: room.fakeArtistId,
+        state: room.getState()
+      });
+    } else if (room.state === 'round_end') {
+      // Раунд завершено
+      io.to(currentRoomCode).emit('round_ended_unicorn', {
+        results: room.roundResults,
+        state: room.getState()
+      });
+    }
+  });
+
+  // Підробний вгадує слово
+  socket.on('submit_fake_guess', ({ guess }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'fake_guessing') return;
+
+    const success = room.submitGuess(currentPlayerId, guess);
+    if (success) {
+      // Переходимо до голосування за правильність
+      io.to(currentRoomCode).emit('voting_answer_started', {
+        fakeGuess: guess,
+        word: room.currentWord,
+        state: room.getState()
+      });
+    }
+  });
+
+  // Голосування за правильність відповіді
+  socket.on('vote_answer_correctness', ({ isCorrect }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'voting_answer') return;
+
+    room.submitVoteForCorrectness(currentPlayerId, isCorrect);
+
+    // Автоматично завершуємо якщо всі проголосували
+    // (перевірка всередині room.submitVoteForCorrectness)
+  });
+
+  // Коли голосування за відповідь завершено
+  socket.on('voting_answer_finished', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'round_end') return;
+
+    io.to(currentRoomCode).emit('round_ended_unicorn', {
+      results: room.roundResults,
+      state: room.getState()
+    });
+  });
+
+  // Наступний раунд
+  socket.on('start_next_round', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || currentPlayerId !== room.hostId) return;
+
+    if (room.state === 'game_end') {
+      socket.emit('error', { message: 'Гра завершена' });
+      return;
+    }
+
+    // Починаємо новий раунд
+    room.startRound();
+
+    // Відправляємо кожному його карточку
+    for (let [playerId, player] of room.players) {
+      const card = room.playerCards.get(playerId);
+      io.to(player.socketId).emit('round_started_unicorn', {
+        round: room.currentRound,
+        theme: room.currentTheme,
+        card: card,
+        turnOrder: room.turnOrder,
+        currentTurnIndex: room.currentTurnIndex,
+        currentDrawingRound: room.currentDrawingRound,
+        state: room.getState()
+      });
+    }
+  });
+
+  // ========== END UNICORN CANVAS EVENTS ==========
+
   // Відключення
   socket.on('disconnect', () => {
     if (currentRoomCode && currentPlayerId) {
