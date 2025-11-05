@@ -1458,13 +1458,22 @@
                                         </button>
                                         
                                         {isHost && (
-                                            <button 
-                                                className="btn btn-primary"
-                                                onClick={startGame}
-                                                disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
-                                            >
-                                                {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Почати гру'}
-                                            </button>
+                                            <>
+                                                <button
+                                                    className="btn btn-primary"
+                                                    onClick={startGame}
+                                                    disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
+                                                >
+                                                    {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Doodle Prophet'}
+                                                </button>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    onClick={() => alert('Unicorn Canvas mode coming soon!')}
+                                                    disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
+                                                >
+                                                    {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Unicorn Canvas'}
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
