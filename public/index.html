@@ -1145,7 +1145,20 @@
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
-            
+
+            // Unicorn Canvas (Fake Artist) state
+            const [unicornMode, setUnicornMode] = useState(false); // Чи гра в режимі Unicorn Canvas
+            const [availableThemes, setAvailableThemes] = useState([]); // Доступні теми для вибору
+            const [selectedThemes, setSelectedThemes] = useState([]); // Обрані теми гравцем
+            const [playerCard, setPlayerCard] = useState(null); // Картка гравця {word: string, isFake: boolean}
+            const [currentTheme, setCurrentTheme] = useState(null); // Поточна тема раунду
+            const [sharedDrawing, setSharedDrawing] = useState([]); // Спільний канвас
+            const [turnOrder, setTurnOrder] = useState([]); // Порядок ходів
+            const [currentTurnIndex, setCurrentTurnIndex] = useState(0); // Індекс поточного гравця
+            const [currentDrawingRound, setCurrentDrawingRound] = useState(1); // 1 або 2
+            const [unicornRoundResults, setUnicornRoundResults] = useState(null); // Результати раунду
+            const [fakeArtistGuess, setFakeArtistGuess] = useState(''); // Здогадка підробного
+
             // Ініціалізація Socket.io
             useEffect(() => {
                 const newSocket = io(SERVER_URL);
@@ -1257,7 +1270,67 @@
                 newSocket.on('player_disconnected', ({ playerId: disconnectedId, state }) => {
                     setRoomData(state);
                 });
-                
+
+                // ========== UNICORN CANVAS EVENTS ==========
+
+                newSocket.on('theme_selection_started', ({ availableThemes, state }) => {
+                    console.log('Theme selection started', availableThemes);
+                    setUnicornMode(true);
+                    setAvailableThemes(availableThemes);
+                    setGameState('theme_selection');
+                    setRoomData(state);
+                });
+
+                newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, state }) => {
+                    console.log('Unicorn round started', { round, theme, card });
+                    setCurrentTheme(theme);
+                    setPlayerCard(card);
+                    setTurnOrder(turnOrder);
+                    setCurrentTurnIndex(currentTurnIndex);
+                    setCurrentDrawingRound(currentDrawingRound);
+                    setSharedDrawing([]);
+                    setGameState('unicorn_drawing');
+                    setRoomData(state);
+                });
+
+                newSocket.on('drawing_stroke_added', ({ stroke, sharedDrawing }) => {
+                    setSharedDrawing(sharedDrawing);
+                });
+
+                newSocket.on('next_turn', ({ currentTurnIndex, currentDrawingRound, currentPlayerId, state }) => {
+                    setCurrentTurnIndex(currentTurnIndex);
+                    setCurrentDrawingRound(currentDrawingRound);
+                    setRoomData(state);
+                });
+
+                newSocket.on('voting_for_fake_started', ({ state }) => {
+                    console.log('Voting for fake started');
+                    setGameState('voting_fake');
+                    setRoomData(state);
+                });
+
+                newSocket.on('fake_guessing_started', ({ fakeArtistId, state }) => {
+                    console.log('Fake guessing started', fakeArtistId);
+                    setGameState('fake_guessing');
+                    setRoomData(state);
+                });
+
+                newSocket.on('voting_answer_started', ({ fakeGuess, word, state }) => {
+                    console.log('Voting answer started', { fakeGuess, word });
+                    setFakeArtistGuess(fakeGuess);
+                    setGameState('voting_answer');
+                    setRoomData(state);
+                });
+
+                newSocket.on('round_ended_unicorn', ({ results, state }) => {
+                    console.log('Unicorn round ended', results);
+                    setUnicornRoundResults(results);
+                    setGameState('unicorn_round_end');
+                    setRoomData(state);
+                });
+
+                // ========== END UNICORN CANVAS EVENTS ==========
+
                 setSocket(newSocket);
                 
                 // Спроба відновити сесію
@@ -1488,7 +1561,70 @@
                     </div>
                 );
             }
-            
+
+            // UNICORN CANVAS: Вибір тем
+            if (gameState === 'theme_selection') {
+                const handleThemeToggle = (theme) => {
+                    setSelectedThemes(prev => {
+                        if (prev.includes(theme)) {
+                            return prev.filter(t => t !== theme);
+                        } else if (prev.length < 5) {
+                            return [...prev, theme];
+                        }
+                        return prev;
+                    });
+                };
+
+                const submitThemes = () => {
+                    if (socket) {
+                        socket.emit('submit_theme_votes', { selectedThemes });
+                    }
+                };
+
+                return (
+                    <div className="lobby-container">
+                        <div className="lobby">
+                            <h1>Оберіть 5 тем для гри</h1>
+                            <p>Таймер: 30 секунд</p>
+                            <p>Обрано: {selectedThemes.length}/5</p>
+
+                            <div className="theme-grid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(4, 1fr)',
+                                gap: '10px',
+                                maxWidth: '800px',
+                                margin: '20px auto'
+                            }}>
+                                {availableThemes.map(theme => (
+                                    <button
+                                        key={theme}
+                                        onClick={() => handleThemeToggle(theme)}
+                                        className={`btn ${selectedThemes.includes(theme) ? 'btn-success' : 'btn-secondary'}`}
+                                        disabled={!selectedThemes.includes(theme) && selectedThemes.length >= 5}
+                                        style={{
+                                            padding: '15px',
+                                            fontSize: '14px',
+                                            opacity: (!selectedThemes.includes(theme) && selectedThemes.length >= 5) ? 0.5 : 1
+                                        }}
+                                    >
+                                        {theme}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={submitThemes}
+                                className="btn btn-primary"
+                                style={{ marginTop: '20px' }}
+                                disabled={selectedThemes.length === 0}
+                            >
+                                Підтвердити вибір
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
             if (gameState === 'playing') {
                 return (
                     <GameBoard

@@ -1417,10 +1417,21 @@ io.on('connection', (socket) => {
 
     room.submitThemeVotes(currentPlayerId, selectedThemes);
 
-    // Перевіряємо чи всі проголосували
-    if (room.playerThemeVotes.size === room.players.size) {
-      // Автоматично завершуємо вибір
-      io.to(currentRoomCode).emit('all_themes_submitted');
+    // Перевіряємо чи раунд почався (всі проголосували)
+    if (room.state === 'drawing') {
+      // Відправляємо кожному його карточку
+      for (let [playerId, player] of room.players) {
+        const card = room.playerCards.get(playerId);
+        io.to(player.socketId).emit('round_started_unicorn', {
+          round: room.currentRound,
+          theme: room.currentTheme,
+          card: card,
+          turnOrder: room.turnOrder,
+          currentTurnIndex: room.currentTurnIndex,
+          currentDrawingRound: room.currentDrawingRound,
+          state: room.getState()
+        });
+      }
     }
   });
 
