@@ -1305,6 +1305,12 @@
                 }
             };
 
+            const startUnicornCanvas = () => {
+                if (socket && isHost) {
+                    socket.emit('start_unicorn_canvas');
+                }
+            };
+
             const makeGuess = (targetId, number) => {
                 if (socket && !myGuesses[targetId] && !usedNumbers.has(number)) {
                     socket.emit('make_guess', { targetId, number });
@@ -1468,7 +1474,7 @@
                                                 </button>
                                                 <button
                                                     className="btn btn-secondary"
-                                                    onClick={() => alert('Unicorn Canvas mode coming soon!')}
+                                                    onClick={startUnicornCanvas}
                                                     disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
                                                 >
                                                     {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Unicorn Canvas'}

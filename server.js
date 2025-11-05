@@ -1200,7 +1200,66 @@ io.on('connection', (socket) => {
       }
     }
   });
-  
+
+  // Старт Unicorn Canvas (Fake Artist) режиму
+  socket.on('start_unicorn_canvas', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || currentPlayerId !== room.hostId) return;
+
+    // Перевіряємо чи кімната в лобі
+    if (room.state !== 'lobby') {
+      socket.emit('error', { message: 'Гра вже почалася' });
+      return;
+    }
+
+    if (room.players.size < 3) {
+      socket.emit('error', { message: 'Потрібно мінімум 3 гравці' });
+      return;
+    }
+
+    // Зберігаємо дані гравців
+    const playersData = [];
+    for (let [playerId, player] of room.players) {
+      playersData.push({
+        id: playerId,
+        name: player.name,
+        socketId: player.socketId,
+        connected: player.connected
+      });
+    }
+
+    const hostId = room.hostId;
+    const roomCode = room.code;
+
+    // Очищаємо стару кімнату
+    room.cleanup();
+
+    // Створюємо нову FakeArtistGame
+    const newRoom = new FakeArtistGame(roomCode, hostId);
+
+    // Копіюємо гравців
+    for (let playerData of playersData) {
+      newRoom.addPlayer(playerData.id, playerData.name, playerData.socketId);
+      // Зберігаємо стан ready якщо був
+      if (room.readyPlayers && room.readyPlayers.has(playerData.id)) {
+        newRoom.readyPlayers.add(playerData.id);
+      }
+    }
+
+    // Замінюємо кімнату
+    rooms.set(roomCode, newRoom);
+
+    // Починаємо вибір тем
+    newRoom.startThemeSelection();
+
+    io.to(roomCode).emit('theme_selection_started', {
+      availableThemes: newRoom.availableThemes,
+      state: newRoom.getState()
+    });
+
+    console.log(`Room ${roomCode} converted to Unicorn Canvas mode`);
+  });
+
   // Синхронізація малювання
   socket.on('drawing_update', ({ strokes }) => {
     const room = rooms.get(currentRoomCode);
