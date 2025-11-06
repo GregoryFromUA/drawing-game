@@ -1206,6 +1206,7 @@
             const lastYRef = useRef(null);
             const customCursorRef = useRef(null);
             const ctxRef = useRef(null);
+            const lastDrawnIndexRef = useRef(0); // Індекс останнього намальованого штриху
 
             // State для голосувань в Unicorn Canvas
             const [myVoteForFake, setMyVoteForFake] = useState(null);
@@ -1363,6 +1364,14 @@
                     setCurrentTurnIndex(currentTurnIndex);
                     setCurrentDrawingRound(currentDrawingRound);
                     setSharedDrawing([]);
+                    // ВИПРАВЛЕНО: Скидаємо індекс при новому раунді
+                    if (lastDrawnIndexRef.current) {
+                        lastDrawnIndexRef.current = 0;
+                    }
+                    // Очищаємо канвас при новому раунді
+                    if (ctxRef.current && canvasRef.current) {
+                        ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                    }
                     setGameState('unicorn_drawing');
                     setRoomData(state);
                 });
@@ -1495,29 +1504,45 @@
                 }
             }, [gameState]);
 
-            // Canvas rendering для Unicorn Canvas
+            // ВИПРАВЛЕНО: Інкрементальне малювання - тільки НОВІ штрихи!
             useEffect(() => {
-                if (gameState !== 'unicorn_drawing') return;
+                if (gameState !== 'unicorn_drawing' || !ctxRef.current) return;
 
                 const canvas = canvasRef.current;
                 if (!canvas) return;
 
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const ctx = ctxRef.current;
 
-                // Малюємо всі штрихи
-                sharedDrawing.forEach(stroke => {
+                // Малюємо тільки НОВІ штрихи (від lastDrawnIndexRef до кінця)
+                for (let i = lastDrawnIndexRef.current; i < sharedDrawing.length; i++) {
+                    const stroke = sharedDrawing[i];
+
                     if (stroke.type === 'start') {
                         ctx.beginPath();
                         ctx.strokeStyle = stroke.color || '#000000';
+                        ctx.fillStyle = stroke.color || '#000000';
                         ctx.lineWidth = 3;
                         ctx.lineCap = 'round';
-                        ctx.moveTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                        ctx.lineJoin = 'round';
+                        const x = stroke.x * canvas.width;
+                        const y = stroke.y * canvas.height;
+                        // Малюємо початкову точку
+                        ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
                     } else if (stroke.type === 'draw') {
-                        ctx.lineTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                        const x = stroke.x * canvas.width;
+                        const y = stroke.y * canvas.height;
+                        ctx.lineTo(x, y);
                         ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
                     }
-                });
+                }
+
+                // Оновлюємо індекс останнього намальованого штриху
+                lastDrawnIndexRef.current = sharedDrawing.length;
             }, [gameState, sharedDrawing]);
 
             // Скидання стану малювання при зміні gameState
@@ -1878,10 +1903,11 @@
                     lastYRef.current = y;
 
                     const ctx = ctxRef.current;
+                    // ВИПРАВЛЕНО: Малюємо ЦВЕТОМ ИГРОКА одразу!
+                    const myColor = roomData?.players?.find(p => p.id === playerId)?.color || '#000000';
 
-                    // ВИПРАВЛЕНО: Малюємо початкову точку (як в Doodle Prophet)
-                    ctx.strokeStyle = '#000000';
-                    ctx.fillStyle = '#000000';
+                    ctx.strokeStyle = myColor;
+                    ctx.fillStyle = myColor;
                     ctx.lineWidth = 3;
                     ctx.beginPath();
                     ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
@@ -1889,7 +1915,8 @@
                     ctx.beginPath();
                     ctx.moveTo(x, y);
 
-                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height };
+                    // ВИПРАВЛЕНО: Відправляємо колір у штрихах!
+                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height, color: myColor };
                     strokeBufferRef.current.push(stroke);
                 };
 
@@ -1903,9 +1930,11 @@
                     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
                     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-                    // ВИПРАВЛЕНО: Малюємо локально ОДРАЗУ (як в Doodle Prophet)
+                    // ВИПРАВЛЕНО: Малюємо локально ОДРАЗУ ЦВЕТОМ ИГРОКА!
                     const ctx = ctxRef.current;
-                    ctx.strokeStyle = '#000000';
+                    const myColor = roomData?.players?.find(p => p.id === playerId)?.color || '#000000';
+
+                    ctx.strokeStyle = myColor;
                     ctx.lineWidth = 3;
                     ctx.beginPath();
                     ctx.moveTo(lastXRef.current, lastYRef.current);
@@ -1915,7 +1944,8 @@
                     lastXRef.current = x;
                     lastYRef.current = y;
 
-                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height };
+                    // ВИПРАВЛЕНО: Відправляємо колір у штрихах!
+                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height, color: myColor };
                     strokeBufferRef.current.push(stroke);
 
                     // Оновлюємо custom cursor
