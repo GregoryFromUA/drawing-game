@@ -1486,6 +1486,18 @@ io.on('connection', (socket) => {
       room.state = 'round_end';
     }
   });
+
+  // НОВЕ: Показати правильні відповіді (тільки хост)
+  socket.on('reveal_answers', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || currentPlayerId !== room.hostId) {
+      console.log(`Player ${currentPlayerId} tried to reveal answers but is not host`);
+      return;
+    }
+
+    console.log(`Host ${currentPlayerId} revealing correct answers`);
+    io.to(currentRoomCode).emit('answers_revealed');
+  });
   
   // Наступний раунд
   socket.on('next_round', () => {

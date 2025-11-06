@@ -1168,6 +1168,7 @@
             const [myGuesses, setMyGuesses] = useState({});
             const [usedNumbers, setUsedNumbers] = useState(new Set());
             const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
+            const [showCorrectAnswers, setShowCorrectAnswers] = useState(false); // НОВЕ: Чи показувати правильні відповіді
             const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
@@ -1255,6 +1256,7 @@
                     setMyGuesses({});
                     setUsedNumbers(new Set());
                     setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
+                    setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
                     setIsDrawingLocked(false);
                 });
                 
@@ -1300,7 +1302,13 @@
                         return newResults;
                     });
                 });
-                
+
+                // НОВЕ: Обробник показу правильних відповідей
+                newSocket.on('answers_revealed', () => {
+                    console.log('📢 Answers revealed by host');
+                    setShowCorrectAnswers(true);
+                });
+
                 newSocket.on('round_ended', (results) => {
                     setRoundResults(results);
                     setGameState('round_end');
@@ -2492,6 +2500,7 @@
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
                         myGuessResults={myGuessResults}
+                        showCorrectAnswers={showCorrectAnswers}
                         isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
@@ -2792,6 +2801,7 @@
             myGuesses,
             usedNumbers,
             myGuessResults,
+            showCorrectAnswers,
             isDrawingLocked,
             makeGuess,
             isHost,
@@ -3330,6 +3340,21 @@
                                                     >
                                                         Завершити раунд
                                                     </button>
+
+                                                    {!showCorrectAnswers && (
+                                                        <button
+                                                            className="action-btn btn-success"
+                                                            onClick={() => {
+                                                                if (socket) {
+                                                                    socket.emit('reveal_answers');
+                                                                }
+                                                            }}
+                                                            title="Показати всім правильні відповіді (які слова насправді були загадані)"
+                                                            style={{ marginTop: '5px' }}
+                                                        >
+                                                            Показати правильні відповіді
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -3416,6 +3441,7 @@
                                                 // Нова система відгадування
                                                 wordAssignment={wordAssignments[player.id]}
                                                 guessResult={myGuessResults[player.id]}
+                                                showCorrectAnswers={showCorrectAnswers}
                                                 isSelected={selectedPlayer === player.id}
                                                 isHovered={hoveredPlayer === player.id}
                                                 onClick={() => handlePlayerClick(player.id)}
@@ -3455,8 +3481,8 @@
                                                myGuessResults[pid]?.targetAssignment?.number === number
                                     );
 
-                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // ВИПРАВЛЕНО: Слово правильне якщо: користувач вибрав і correct=true АБО (це targetAssignment І showCorrectAnswers=true)
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined && showCorrectAnswers);
                                     // Слово неправильне якщо: користувач вибрав і correct=false
                                     const isIncorrect = userGuessResult?.correct === false;
 
@@ -3507,8 +3533,8 @@
                                                myGuessResults[pid]?.targetAssignment?.number === number
                                     );
 
-                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
+                                    // ВИПРАВЛЕНО: Слово правильне якщо: користувач вибрав і correct=true АБО (це targetAssignment І showCorrectAnswers=true)
+                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined && showCorrectAnswers);
                                     // Слово неправильне якщо: користувач вибрав і correct=false
                                     const isIncorrect = userGuessResult?.correct === false;
 
@@ -3568,6 +3594,7 @@
             // Нова система відгадування
             wordAssignment,
             guessResult,
+            showCorrectAnswers,
             isSelected,
             isHovered,
             onClick,
@@ -3682,15 +3709,27 @@
                 lastDrawnIndexRef.current = drawing.length;
             }, [drawing, canvasSize]);
 
-            const hasAssignment = wordAssignment !== undefined;
             // НОВЕ: Визначаємо чи відповідь правильна/неправильна
             const isCorrect = guessResult?.correct === true;
             const isIncorrect = guessResult?.correct === false;
 
-            // ВИПРАВЛЕНО: Показуємо правильне слово від сервера, а не вибір користувача
-            const displayWord = guessResult?.targetAssignment?.word || wordAssignment?.word;
-            // Колір тексту залежить від правильності
-            const wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
+            // ВИПРАВЛЕНО: Логіка відображення слова
+            // 1. Якщо користувач вибрав слово (wordAssignment) - показуємо його
+            // 2. Якщо НЕТ wordAssignment, але є правильне слово (targetAssignment) І showCorrectAnswers=true - показуємо правильне
+            let displayWord = null;
+            let wordColor = '#4caf50';
+
+            if (wordAssignment) {
+                // Користувач вибрав слово - показуємо його з кольором залежно від правильності
+                displayWord = wordAssignment.word;
+                wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
+            } else if (guessResult?.targetAssignment && showCorrectAnswers) {
+                // Користувач не вибрав, але хост показав правильні відповіді
+                displayWord = guessResult.targetAssignment.word;
+                wordColor = '#4caf50'; // Завжди зелений для правильних відповідей
+            }
+
+            const hasAssignment = displayWord !== null;
 
             return (
                 <div
