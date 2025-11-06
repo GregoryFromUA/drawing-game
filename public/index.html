@@ -1537,12 +1537,28 @@
                 }
             }, [gameState]);
 
-            // ВИПРАВЛЕНО: Кешування розмірів canvas (винесено з умовного блоку)
+            // ВИПРАВЛЕНО: Ініціалізація canvas для Unicorn Canvas (як в Doodle Prophet)
             useEffect(() => {
-                if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing') return;
+                if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing' && gameState !== 'voting_answer') return;
 
                 const canvas = canvasRef.current;
-                if (canvas) {
+                if (canvas && !ctxRef.current) {
+                    // Ініціалізуємо контекст один раз з оптимізаціями
+                    const ctx = canvas.getContext('2d', {
+                        alpha: true,
+                        desynchronized: true  // КРИТИЧНО для performance!
+                    });
+                    ctxRef.current = ctx;
+
+                    canvas.width = 800;
+                    canvas.height = 600;
+
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+
+                    // Кешуємо bounds
                     const updateBounds = () => {
                         canvasBoundsRef.current = canvas.getBoundingClientRect();
                     };
@@ -1552,21 +1568,28 @@
                 }
             }, [gameState]);
 
-            // ВИПРАВЛЕНО: Батчинг для socket.emit - відправка тільки під час активного малювання
+            // ВИПРАВЛЕНО: Батчинг для socket.emit як в Doodle Prophet
             useEffect(() => {
-                if (gameState !== 'unicorn_drawing' || !isDrawing) return;
+                if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing' && gameState !== 'voting_answer') return;
 
-                const interval = setInterval(() => {
+                let animationFrameId;
+
+                const sendStrokes = () => {
                     if (strokeBufferRef.current.length > 0 && socket) {
                         socket.emit('unicorn_drawing_strokes', {
                             strokes: strokeBufferRef.current
                         });
                         strokeBufferRef.current = [];
                     }
-                }, 50); // Відправляємо кожні 50мс під час малювання
+                    animationFrameId = requestAnimationFrame(sendStrokes);
+                };
 
-                return () => clearInterval(interval);
-            }, [gameState, isDrawing, socket]);
+                animationFrameId = requestAnimationFrame(sendStrokes);
+
+                return () => {
+                    cancelAnimationFrame(animationFrameId);
+                };
+            }, [gameState, socket]);
 
             // ВИПРАВЛЕНО: useCallback для курсора (винесено з умовного блоку)
             const updateCustomCursor = useCallback((x, y) => {
@@ -1843,7 +1866,7 @@
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
 
                 const startDrawing = (e) => {
-                    if (!isMyTurn || !canvasBoundsRef.current) return;
+                    if (!isMyTurn || !canvasBoundsRef.current || !ctxRef.current) return;
 
                     const canvas = canvasRef.current;
                     const rect = canvasBoundsRef.current;
@@ -1854,16 +1877,15 @@
                     lastXRef.current = x;
                     lastYRef.current = y;
 
-                    // Отримуємо контекст
-                    if (!ctxRef.current) {
-                        ctxRef.current = canvas.getContext('2d');
-                        ctxRef.current.lineCap = 'round';
-                        ctxRef.current.lineJoin = 'round';
-                    }
-
                     const ctx = ctxRef.current;
+
+                    // ВИПРАВЛЕНО: Малюємо початкову точку (як в Doodle Prophet)
                     ctx.strokeStyle = '#000000';
+                    ctx.fillStyle = '#000000';
                     ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+                    ctx.fill();
                     ctx.beginPath();
                     ctx.moveTo(x, y);
 
@@ -1872,7 +1894,7 @@
                 };
 
                 const draw = (e) => {
-                    if (!isMyTurn || !isDrawing || !canvasBoundsRef.current) return;
+                    if (!isMyTurn || !isDrawing || !canvasBoundsRef.current || !ctxRef.current || lastXRef.current === null) return;
 
                     e.preventDefault();
 
@@ -1881,8 +1903,12 @@
                     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
                     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-                    // Малюємо локально
+                    // ВИПРАВЛЕНО: Малюємо локально ОДРАЗУ (як в Doodle Prophet)
                     const ctx = ctxRef.current;
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(lastXRef.current, lastYRef.current);
                     ctx.lineTo(x, y);
                     ctx.stroke();
 
@@ -1906,14 +1932,7 @@
                     const stroke = { type: 'end' };
                     strokeBufferRef.current.push(stroke);
 
-                    // ВИПРАВЛЕНО: Відправляємо всі залишки штрихів перед завершенням
-                    if (socket && strokeBufferRef.current.length > 0) {
-                        socket.emit('unicorn_drawing_strokes', {
-                            strokes: strokeBufferRef.current
-                        });
-                        strokeBufferRef.current = [];
-                    }
-
+                    // ВИПРАВЛЕНО: requestAnimationFrame сам відправить залишки
                     // Хід завершено
                     if (socket) {
                         socket.emit('stroke_finished');
