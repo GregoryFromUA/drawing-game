@@ -50,7 +50,6 @@ class GameRoom {
     this.scores = new Map();
     this.readyPlayers = new Set();
     this.finishedGuessing = new Set();
-    this.blackTokensGiven = [];
     this.drawingLocks = new Map(); // Блокування малюнків
     this.usedWordSetIndices = []; // Зберігаємо індекси використаних наборів для уникнення повторів
     this.isStartingRound = false; // НОВЕ: Захист від race condition
@@ -69,10 +68,7 @@ class GameRoom {
     this.finishedGuessing.clear();
     this.drawingLocks.clear();
     this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
-    
-    // Очищаємо масиви
-    this.blackTokensGiven = [];
-    
+
     // Обмежуємо usedWordSetIndices максимум 100 записами (достатньо для 25 ігор)
     if (this.usedWordSetIndices.length > 100) {
       // Залишаємо тільки останні 50 записів
@@ -168,7 +164,6 @@ class GameRoom {
       this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
-      this.blackTokensGiven = [];
       this.drawingLocks.clear();
       this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
       this.answersRevealed = false; // НОВЕ: Скидаємо показ правильних відповідей
@@ -294,8 +289,7 @@ class GameRoom {
       this.roundData = {
         wordSet,
         assignments,
-        playerScoreSequences: new Map(), // Персональні черги очок для кожного художника
-        blackTokenSequence: [] // Чорні жетони
+        playerScoreSequences: new Map() // Персональні черги очок для кожного художника
       };
       
       // Ініціалізуємо черги очок
@@ -303,19 +297,14 @@ class GameRoom {
       const guessSequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
       for (let [playerId] of this.players) {
         this.roundData.playerScoreSequences.set(
-          playerId, 
+          playerId,
           [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
         );
       }
-      
-      // ВИПРАВЛЕННЯ: Для чорних жетонів: кількість = players.size (всі можуть завершити)
-      const blackTokenSequenceLength = Math.min(this.players.size, SCORE_SEQUENCE.length);
-      this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, blackTokenSequenceLength)];
-      
+
       console.log(`Round ${this.currentRound} initialized:`);
       console.log(`- Players: ${this.players.size}`);
       console.log(`- Guess sequence length: ${guessSequenceLength}`);
-      console.log(`- Black token sequence: [${this.roundData.blackTokenSequence.join(', ')}]`);
       
       this.state = 'playing';
       
@@ -435,17 +424,7 @@ class GameRoom {
 
   finishGuessing(playerId) {
     this.finishedGuessing.add(playerId);
-    
-    // Видаємо чорний жетон
-    if (this.roundData.blackTokenSequence.length > 0) {
-      const token = this.roundData.blackTokenSequence.shift();
-      this.blackTokensGiven.push({ playerId, score: token });
-      console.log(`Player ${playerId} received black token: ${token} points`);
-      console.log(`Remaining black tokens: [${this.roundData.blackTokenSequence.join(', ')}]`);
-      return token;
-    }
-    console.log(`Player ${playerId} finished but no black tokens left`);
-    return 0;
+    console.log(`Player ${playerId} finished guessing`);
   }
 
   isRoundComplete() {
@@ -487,14 +466,7 @@ class GameRoom {
         roundScores.set(guessesForArtist[i].guesserId, current + points);
       }
     }
-    
-    // Додаємо чорні жетони
-    for (let { playerId, score } of this.blackTokensGiven) {
-      const current = roundScores.get(playerId) || 0;
-      roundScores.set(playerId, current + score);
-      console.log(`Adding black token score for ${playerId}: +${score}`);
-    }
-    
+
     // Оновлюємо загальні очки
     for (let [playerId, points] of roundScores) {
       const current = this.scores.get(playerId) || 0;
@@ -1456,8 +1428,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
 
-    const blackToken = room.finishGuessing(currentPlayerId);
-    socket.emit('black_token_received', { score: blackToken });
+    room.finishGuessing(currentPlayerId);
 
     io.to(currentRoomCode).emit('player_finished_guessing', {
       playerId: currentPlayerId
