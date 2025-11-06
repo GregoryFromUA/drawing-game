@@ -1532,23 +1532,21 @@
                 }
             }, [gameState]);
 
-            // ВИПРАВЛЕНО: Батчинг для socket.emit (винесено з умовного блоку)
+            // ВИПРАВЛЕНО: Батчинг для socket.emit - відправка тільки під час активного малювання
             useEffect(() => {
-                if (gameState !== 'unicorn_drawing') return;
+                if (gameState !== 'unicorn_drawing' || !isDrawing) return;
 
-                let animationFrameId;
-                const sendStrokes = () => {
+                const interval = setInterval(() => {
                     if (strokeBufferRef.current.length > 0 && socket) {
                         socket.emit('unicorn_drawing_strokes', {
                             strokes: strokeBufferRef.current
                         });
                         strokeBufferRef.current = [];
                     }
-                    animationFrameId = requestAnimationFrame(sendStrokes);
-                };
-                animationFrameId = requestAnimationFrame(sendStrokes);
-                return () => cancelAnimationFrame(animationFrameId);
-            }, [gameState, socket]);
+                }, 50); // Відправляємо кожні 50мс під час малювання
+
+                return () => clearInterval(interval);
+            }, [gameState, isDrawing, socket]);
 
             // ВИПРАВЛЕНО: useCallback для курсора (винесено з умовного блоку)
             const updateCustomCursor = useCallback((x, y) => {
@@ -1888,7 +1886,15 @@
                     const stroke = { type: 'end' };
                     strokeBufferRef.current.push(stroke);
 
-                    // Хід завершено - відправляємо на сервер
+                    // ВИПРАВЛЕНО: Відправляємо всі залишки штрихів перед завершенням
+                    if (socket && strokeBufferRef.current.length > 0) {
+                        socket.emit('unicorn_drawing_strokes', {
+                            strokes: strokeBufferRef.current
+                        });
+                        strokeBufferRef.current = [];
+                    }
+
+                    // Хід завершено
                     if (socket) {
                         socket.emit('stroke_finished');
                     }
