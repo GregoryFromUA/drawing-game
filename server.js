@@ -55,6 +55,7 @@ class GameRoom {
     this.usedWordSetIndices = []; // Зберігаємо індекси використаних наборів для уникнення повторів
     this.isStartingRound = false; // НОВЕ: Захист від race condition
     this.drawingRateLimit = new Map(); // НОВЕ: Rate limiting для малювання
+    this.answersRevealed = false; // НОВЕ: Флаг показу правильних відповідей
   }
 
   // НОВЕ: Метод очищення пам'яті
@@ -170,6 +171,7 @@ class GameRoom {
       this.blackTokensGiven = [];
       this.drawingLocks.clear();
       this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
+      this.answersRevealed = false; // НОВЕ: Скидаємо показ правильних відповідей
       
       // ВИПРАВЛЕНО: Видаляємо відключених гравців перед новим раундом
       const disconnectedPlayers = [];
@@ -523,7 +525,8 @@ class GameRoom {
       state: this.state,
       currentRound: this.currentRound,
       scores: Object.fromEntries(this.scores),
-      hostId: this.hostId
+      hostId: this.hostId,
+      answersRevealed: this.answersRevealed
     };
   }
 }
@@ -1496,7 +1499,14 @@ io.on('connection', (socket) => {
     }
 
     console.log(`Host ${currentPlayerId} revealing correct answers`);
-    io.to(currentRoomCode).emit('answers_revealed');
+
+    // ВИПРАВЛЕНО: Встановлюємо флаг на сервері
+    room.answersRevealed = true;
+
+    // ВИПРАВЛЕНО: Відправляємо оновлений стан всім гравцям
+    io.to(currentRoomCode).emit('answers_revealed', {
+      state: room.getState()
+    });
   });
   
   // Наступний раунд

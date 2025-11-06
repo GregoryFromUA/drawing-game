@@ -1238,15 +1238,27 @@
                     setRoomData(state);
                     setGameState('lobby');
                     setIsHost(state.hostId === playerId);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                     localStorage.setItem('gameSession', JSON.stringify({ roomCode, playerId, playerName }));
                 });
                 
                 newSocket.on('player_joined', (state) => {
                     setRoomData(state);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                 });
-                
+
                 newSocket.on('player_ready_changed', (state) => {
                     setRoomData(state);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                 });
                 
                 newSocket.on('round_started', (data) => {
@@ -1304,9 +1316,11 @@
                 });
 
                 // НОВЕ: Обробник показу правильних відповідей
-                newSocket.on('answers_revealed', () => {
-                    console.log('📢 Answers revealed by host');
-                    setShowCorrectAnswers(true);
+                newSocket.on('answers_revealed', ({ state }) => {
+                    console.log('📢 Answers revealed by host', state);
+                    if (state?.answersRevealed) {
+                        setShowCorrectAnswers(true);
+                    }
                 });
 
                 newSocket.on('round_ended', (results) => {
