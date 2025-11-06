@@ -617,7 +617,8 @@ class FakeArtistGame {
       name,
       socketId,
       connected: true,
-      color
+      color,
+      ready: false  // ВИПРАВЛЕНО: Додано поле ready
     });
     this.playerColors.set(id, color);
     this.scores.set(id, 0);
@@ -657,6 +658,26 @@ class FakeArtistGame {
     } else {
       this.readyPlayers.add(playerId);
     }
+  }
+
+  // ВИПРАВЛЕНО: Додано метод setPlayerReady для сумісності з GameRoom
+  setPlayerReady(playerId, ready) {
+    const player = this.players.get(playerId);
+    if (player) {
+      // Оновлюємо ready стан гравця
+      player.ready = ready;
+      if (ready) {
+        this.readyPlayers.add(playerId);
+      } else {
+        this.readyPlayers.delete(playerId);
+      }
+    }
+  }
+
+  // ВИПРАВЛЕНО: Додано метод canStartGame для сумісності з GameRoom
+  canStartGame() {
+    return this.players.size >= MIN_PLAYERS &&
+           this.readyPlayers.size === this.players.size;
   }
 
   // Початок вибору тем
@@ -1118,7 +1139,7 @@ class FakeArtistGame {
       id: p.id,
       name: p.name,
       connected: p.connected,
-      ready: this.readyPlayers.has(p.id),
+      ready: p.ready || false,  // ВИПРАВЛЕНО: Беремо з об'єкта гравця
       color: p.color
     }));
 
@@ -1500,8 +1521,10 @@ io.on('connection', (socket) => {
       room.usedThemes = []; // Скидаємо використані теми
       room.selectedThemesPool = [];
 
+      // ВИПРАВЛЕНО: Скидаємо ready статус для всіх гравців
       for (let [playerId] of room.players) {
         room.scores.set(playerId, 0);
+        room.setPlayerReady(playerId, false);
       }
     } else {
       // Для Doodle Prophet (GameRoom)
