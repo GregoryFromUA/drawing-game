@@ -1503,9 +1503,12 @@ io.on('connection', (socket) => {
     // ВИПРАВЛЕНО: Встановлюємо флаг на сервері
     room.answersRevealed = true;
 
-    // ВИПРАВЛЕНО: Відправляємо оновлений стан всім гравцям
+    // ВИПРАВЛЕНО: Відправляємо всі правильні відповіді (assignments) всім гравцям
+    const allAssignments = room.roundData ? Object.fromEntries(room.roundData.assignments) : {};
+
     io.to(currentRoomCode).emit('answers_revealed', {
-      state: room.getState()
+      state: room.getState(),
+      assignments: allAssignments
     });
   });
   

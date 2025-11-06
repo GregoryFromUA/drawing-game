@@ -1188,6 +1188,7 @@
             const [usedNumbers, setUsedNumbers] = useState(new Set());
             const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
             const [showCorrectAnswers, setShowCorrectAnswers] = useState(false); // НОВЕ: Чи показувати правильні відповіді
+            const [allCorrectAssignments, setAllCorrectAssignments] = useState({}); // НОВЕ: Всі правильні відповіді всіх гравців
             const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
@@ -1288,6 +1289,7 @@
                     setUsedNumbers(new Set());
                     setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
                     setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
+                    setAllCorrectAssignments({}); // НОВЕ: Очищаємо всі правильні відповіді
                     setIsDrawingLocked(false);
                 });
                 
@@ -1335,10 +1337,14 @@
                 });
 
                 // НОВЕ: Обробник показу правильних відповідей
-                newSocket.on('answers_revealed', ({ state }) => {
-                    console.log('📢 Answers revealed by host', state);
+                newSocket.on('answers_revealed', ({ state, assignments }) => {
+                    console.log('📢 Answers revealed by host', state, assignments);
                     if (state?.answersRevealed) {
                         setShowCorrectAnswers(true);
+                    }
+                    if (assignments) {
+                        setAllCorrectAssignments(assignments);
+                        console.log('📋 All correct assignments:', assignments);
                     }
                 });
 
@@ -2534,6 +2540,7 @@
                         usedNumbers={usedNumbers}
                         myGuessResults={myGuessResults}
                         showCorrectAnswers={showCorrectAnswers}
+                        allCorrectAssignments={allCorrectAssignments}
                         isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
@@ -2835,6 +2842,7 @@
             usedNumbers,
             myGuessResults,
             showCorrectAnswers,
+            allCorrectAssignments,
             isDrawingLocked,
             makeGuess,
             isHost,
@@ -3508,10 +3516,10 @@
                                     );
                                     const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
 
-                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
-                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
-                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
-                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    // 2. ВИПРАВЛЕНО: Перевіряємо чи це правильна відповідь (шукаємо у всіх правильних відповідях)
+                                    const correctAnswerPlayerId = Object.keys(allCorrectAssignments).find(
+                                        pid => allCorrectAssignments[pid]?.letter === letter &&
+                                               allCorrectAssignments[pid]?.number === number
                                     );
 
                                     // ВИПРАВЛЕНО: Логіка відображення станів
@@ -3560,10 +3568,10 @@
                                     );
                                     const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
 
-                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
-                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
-                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
-                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    // 2. ВИПРАВЛЕНО: Перевіряємо чи це правильна відповідь (шукаємо у всіх правильних відповідях)
+                                    const correctAnswerPlayerId = Object.keys(allCorrectAssignments).find(
+                                        pid => allCorrectAssignments[pid]?.letter === letter &&
+                                               allCorrectAssignments[pid]?.number === number
                                     );
 
                                     // ВИПРАВЛЕНО: Логіка відображення станів
