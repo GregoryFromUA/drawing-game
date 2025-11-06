@@ -433,17 +433,23 @@ class GameRoom {
 
   calculateRoundScores() {
     const roundScores = new Map();
-    
-    // Ініціалізуємо всіх з 0
+    const scoreDetails = new Map(); // Детализація очок для кожного гравця
+
+    // Ініціалізуємо всіх з 0 та створюємо структуру для детализації
     for (let [playerId] of this.players) {
       roundScores.set(playerId, 0);
+      scoreDetails.set(playerId, {
+        guessing: [],  // Очки за відгадування
+        penalty: 0,    // Штраф за свій рисунок
+        total: 0       // Підсумок
+      });
     }
-    
+
     // Розподіляємо очки за правильні здогадки
     for (let [artistId, scoreSequence] of this.roundData.playerScoreSequences) {
       // Збираємо всі здогадки для цього художника
       const guessesForArtist = [];
-      
+
       for (let [guesserId, guesserGuesses] of this.guesses) {
         if (guesserGuesses.has(artistId)) {
           const guess = guesserGuesses.get(artistId);
@@ -455,16 +461,41 @@ class GameRoom {
           }
         }
       }
-      
+
       // Сортуємо за часом
       guessesForArtist.sort((a, b) => a.time - b.time);
-      
+
       // Видаємо очки з персональної черги художника
+      let distributedCount = 0;
       for (let i = 0; i < guessesForArtist.length && i < scoreSequence.length; i++) {
         const points = scoreSequence[i];
-        const current = roundScores.get(guessesForArtist[i].guesserId) || 0;
-        roundScores.set(guessesForArtist[i].guesserId, current + points);
+        const guesserId = guessesForArtist[i].guesserId;
+        const current = roundScores.get(guesserId) || 0;
+        roundScores.set(guesserId, current + points);
+
+        // Записуємо в детализацію
+        scoreDetails.get(guesserId).guessing.push(points);
+        distributedCount++;
       }
+
+      // НОВЕ: Підраховуємо штраф для художника за нерозподілені очки
+      const undistributedPoints = scoreSequence.slice(distributedCount);
+      if (undistributedPoints.length > 0) {
+        const penalty = undistributedPoints.reduce((sum, p) => sum + p, 0);
+        const artistDetails = scoreDetails.get(artistId);
+        artistDetails.penalty = -penalty;
+
+        // Віднімаємо штраф з очок художника
+        const current = roundScores.get(artistId) || 0;
+        roundScores.set(artistId, current - penalty);
+
+        console.log(`Artist ${artistId}: ${guessesForArtist.length} players guessed, penalty: -${penalty} (undistributed: [${undistributedPoints.join(', ')}])`);
+      }
+    }
+
+    // Підраховуємо підсумки для детализації
+    for (let [playerId, details] of scoreDetails) {
+      details.total = roundScores.get(playerId) || 0;
     }
 
     // Оновлюємо загальні очки
@@ -472,15 +503,17 @@ class GameRoom {
       const current = this.scores.get(playerId) || 0;
       this.scores.set(playerId, current + points);
     }
-    
+
     console.log('Round scores:', Object.fromEntries(roundScores));
+    console.log('Score details:', Object.fromEntries(scoreDetails));
     console.log('Total scores:', Object.fromEntries(this.scores));
-    
+
     return {
       roundScores: Object.fromEntries(roundScores),
+      scoreDetails: Object.fromEntries(scoreDetails), // НОВЕ: детализація
       totalScores: Object.fromEntries(this.scores),
       assignments: Object.fromEntries(this.roundData.assignments),
-      guesses: Object.fromEntries([...this.guesses].map(([id, guesses]) => 
+      guesses: Object.fromEntries([...this.guesses].map(([id, guesses]) =>
         [id, Object.fromEntries(guesses)]
       ))
     };
