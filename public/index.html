@@ -1160,6 +1160,16 @@
             const [fakeArtistGuess, setFakeArtistGuess] = useState(''); // Здогадка підробного
             const [themeSelectionTimeLeft, setThemeSelectionTimeLeft] = useState(30); // Таймер вибору тем
 
+            // Canvas refs and state для малювання
+            const canvasRef = useRef(null);
+            const [isDrawing, setIsDrawing] = useState(false);
+            const [currentStroke, setCurrentStroke] = useState([]);
+
+            // State для голосувань в Unicorn Canvas
+            const [myVoteForFake, setMyVoteForFake] = useState(null);
+            const [fakeGuessInput, setFakeGuessInput] = useState('');
+            const [myVoteForAnswer, setMyVoteForAnswer] = useState(null);
+
             // Ініціалізація Socket.io
             useEffect(() => {
                 const newSocket = io(SERVER_URL);
@@ -1375,6 +1385,48 @@
                     socket.emit('submit_theme_votes', { selectedThemes });
                 }
             }, [gameState, themeSelectionTimeLeft, socket, selectedThemes]);
+
+            // Canvas rendering для Unicorn Canvas
+            useEffect(() => {
+                if (gameState !== 'unicorn_drawing') return;
+
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Малюємо всі штрихи
+                sharedDrawing.forEach(stroke => {
+                    if (stroke.type === 'start') {
+                        ctx.beginPath();
+                        ctx.strokeStyle = stroke.color || '#000000';
+                        ctx.lineWidth = 3;
+                        ctx.lineCap = 'round';
+                        ctx.moveTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                    } else if (stroke.type === 'draw') {
+                        ctx.lineTo(stroke.x * canvas.width, stroke.y * canvas.height);
+                        ctx.stroke();
+                    }
+                });
+            }, [gameState, sharedDrawing]);
+
+            // Скидання стану малювання при зміні gameState
+            useEffect(() => {
+                if (gameState !== 'unicorn_drawing') {
+                    setIsDrawing(false);
+                    setCurrentStroke([]);
+                }
+                if (gameState !== 'voting_fake') {
+                    setMyVoteForFake(null);
+                }
+                if (gameState !== 'fake_guessing') {
+                    setFakeGuessInput('');
+                }
+                if (gameState !== 'voting_answer') {
+                    setMyVoteForAnswer(null);
+                }
+            }, [gameState]);
 
             // Обробники подій
             const createRoom = () => {
@@ -1639,35 +1691,9 @@
 
             // UNICORN CANVAS: Фаза малювання
             if (gameState === 'unicorn_drawing') {
-                const canvasRef = useRef(null);
-                const [isDrawing, setIsDrawing] = useState(false);
-                const [currentStroke, setCurrentStroke] = useState([]);
-
                 const currentPlayerId = turnOrder[currentTurnIndex];
                 const isMyTurn = currentPlayerId === playerId;
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
-
-                useEffect(() => {
-                    const canvas = canvasRef.current;
-                    if (!canvas) return;
-
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                    // Малюємо всі штрихи
-                    sharedDrawing.forEach(stroke => {
-                        if (stroke.type === 'start') {
-                            ctx.beginPath();
-                            ctx.strokeStyle = stroke.color || '#000000';
-                            ctx.lineWidth = 3;
-                            ctx.lineCap = 'round';
-                            ctx.moveTo(stroke.x * canvas.width, stroke.y * canvas.height);
-                        } else if (stroke.type === 'draw') {
-                            ctx.lineTo(stroke.x * canvas.width, stroke.y * canvas.height);
-                            ctx.stroke();
-                        }
-                    });
-                }, [sharedDrawing]);
 
                 const startDrawing = (e) => {
                     if (!isMyTurn) return;
@@ -1866,10 +1892,8 @@
 
             // UNICORN CANVAS: Голосування за підробного художника
             if (gameState === 'voting_fake') {
-                const [myVote, setMyVote] = useState(null);
-
                 const handleVote = (targetId) => {
-                    setMyVote(targetId);
+                    setMyVoteForFake(targetId);
                     if (socket) {
                         socket.emit('vote_fake_artist', { suspectId: targetId });
                     }
@@ -1895,8 +1919,8 @@
                                     <button
                                         key={player.id}
                                         onClick={() => handleVote(player.id)}
-                                        className={`btn ${myVote === player.id ? 'btn-danger' : 'btn-secondary'}`}
-                                        disabled={myVote !== null}
+                                        className={`btn ${myVoteForFake === player.id ? 'btn-danger' : 'btn-secondary'}`}
+                                        disabled={myVoteForFake !== null}
                                         style={{
                                             padding: '20px',
                                             fontSize: '16px',
@@ -1918,7 +1942,7 @@
                                 ))}
                             </div>
 
-                            {myVote && (
+                            {myVoteForFake && (
                                 <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
                                     ✓ Ваш голос збережено. Очікування інших гравців...
                                 </div>
@@ -1930,11 +1954,9 @@
 
             // UNICORN CANVAS: Підробний художник вгадує слово
             if (gameState === 'fake_guessing') {
-                const [guess, setGuess] = useState('');
-
                 const handleSubmitGuess = () => {
-                    if (socket && guess.trim()) {
-                        socket.emit('submit_fake_guess', { guess: guess.trim() });
+                    if (socket && fakeGuessInput.trim()) {
+                        socket.emit('submit_fake_guess', { guess: fakeGuessInput.trim() });
                     }
                 };
 
@@ -1955,8 +1977,8 @@
 
                                     <input
                                         type="text"
-                                        value={guess}
-                                        onChange={(e) => setGuess(e.target.value)}
+                                        value={fakeGuessInput}
+                                        onChange={(e) => setFakeGuessInput(e.target.value)}
                                         placeholder="Введіть ваше припущення..."
                                         style={{
                                             padding: '15px',
@@ -1976,7 +1998,7 @@
                                         <button
                                             onClick={handleSubmitGuess}
                                             className="btn btn-primary"
-                                            disabled={!guess.trim()}
+                                            disabled={!fakeGuessInput.trim()}
                                             style={{ fontSize: '18px', padding: '15px 40px' }}
                                         >
                                             Підтвердити відповідь
@@ -1999,10 +2021,8 @@
 
             // UNICORN CANVAS: Голосування за правильність відповіді
             if (gameState === 'voting_answer') {
-                const [myVote, setMyVote] = useState(null);
-
                 const handleVote = (isCorrect) => {
-                    setMyVote(isCorrect);
+                    setMyVoteForAnswer(isCorrect);
                     if (socket) {
                         socket.emit('vote_answer_correctness', { isCorrect });
                     }
@@ -2044,23 +2064,23 @@
                                     <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
                                         <button
                                             onClick={() => handleVote(true)}
-                                            className={`btn ${myVote === true ? 'btn-success' : 'btn-secondary'}`}
-                                            disabled={myVote !== null}
+                                            className={`btn ${myVoteForAnswer === true ? 'btn-success' : 'btn-secondary'}`}
+                                            disabled={myVoteForAnswer !== null}
                                             style={{ padding: '20px 50px', fontSize: '20px' }}
                                         >
                                             ✓ Правильно
                                         </button>
                                         <button
                                             onClick={() => handleVote(false)}
-                                            className={`btn ${myVote === false ? 'btn-danger' : 'btn-secondary'}`}
-                                            disabled={myVote !== null}
+                                            className={`btn ${myVoteForAnswer === false ? 'btn-danger' : 'btn-secondary'}`}
+                                            disabled={myVoteForAnswer !== null}
                                             style={{ padding: '20px 50px', fontSize: '20px' }}
                                         >
                                             ✗ Неправильно
                                         </button>
                                     </div>
 
-                                    {myVote !== null && (
+                                    {myVoteForAnswer !== null && (
                                         <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
                                             ✓ Ваш голос збережено
                                         </div>
