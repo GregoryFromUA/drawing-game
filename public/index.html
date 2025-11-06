@@ -1365,13 +1365,8 @@
                     setCurrentDrawingRound(currentDrawingRound);
                     setSharedDrawing([]);
                     // ВИПРАВЛЕНО: Скидаємо індекс при новому раунді
-                    if (lastDrawnIndexRef.current) {
-                        lastDrawnIndexRef.current = 0;
-                    }
-                    // Очищаємо канвас при новому раунді
-                    if (ctxRef.current && canvasRef.current) {
-                        ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-                    }
+                    lastDrawnIndexRef.current = 0;
+                    // ВИПРАВЛЕНО: НЕ очищаємо тут - useEffect зробить це при реініціалізації
                     setGameState('unicorn_drawing');
                     setRoomData(state);
                 });
@@ -1562,15 +1557,18 @@
                 }
             }, [gameState]);
 
-            // ВИПРАВЛЕНО: Ініціалізація canvas для Unicorn Canvas (як в Doodle Prophet)
+            // ВИПРАВЛЕНО: Ініціалізація canvas для Unicorn Canvas
             useEffect(() => {
                 if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing' && gameState !== 'voting_answer') return;
 
                 const canvas = canvasRef.current;
-                if (canvas && !ctxRef.current) {
-                    // Ініціалізуємо контекст один раз з оптимізаціями
+                if (!canvas) return;
+
+                // ВИПРАВЛЕНО: Завжди реініціалізуємо при вході у фазу малювання
+                if (gameState === 'unicorn_drawing' || !ctxRef.current) {
+                    // Ініціалізуємо контекст з оптимізаціями
                     const ctx = canvas.getContext('2d', {
-                        alpha: true,
+                        alpha: false,  // ВИПРАВЛЕНО: false для білого фону!
                         desynchronized: true  // КРИТИЧНО для performance!
                     });
                     ctxRef.current = ctx;
@@ -1582,6 +1580,10 @@
                     ctx.lineJoin = 'round';
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
+
+                    // ВИПРАВЛЕНО: Заливаємо білим фоном!
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                     // Кешуємо bounds
                     const updateBounds = () => {
