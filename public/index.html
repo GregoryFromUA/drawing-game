@@ -1489,7 +1489,7 @@
             // ВИПРАВЛЕНО: Таймер відгадування
             useEffect(() => {
                 if (gameState === 'fake_guessing') {
-                    setGuessingTimeLeft(20); // Скидаємо при вході в фазу
+                    setGuessingTimeLeft(30); // Скидаємо при вході в фазу
                     const timer = setInterval(() => {
                         setGuessingTimeLeft(prev => {
                             if (prev <= 0) return 0;

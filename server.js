@@ -977,7 +977,7 @@ class FakeArtistGame {
     this.guessTimer = setTimeout(() => {
       // Час вичерпано, підробний не встиг відповісти
       this.finishGuessing(null);
-    }, 20000); // 20 секунд
+    }, 30000); // 30 секунд
   }
 
   submitGuess(playerId, guess) {
