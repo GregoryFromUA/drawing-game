@@ -1075,7 +1075,29 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-section {
+            animation: fadeInUp 0.4s ease-out;
+            background: #f8f8f8;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
         .error-message {
             background: #ffebee;
             color: #c62828;
@@ -1748,8 +1770,8 @@
                 );
             }
 
-            // UNICORN CANVAS: Фаза малювання
-            if (gameState === 'unicorn_drawing') {
+            // UNICORN CANVAS: Фаза малювання (та додаткові фази з канвасом)
+            if (gameState === 'unicorn_drawing' || gameState === 'voting_fake' || gameState === 'fake_guessing') {
                 const currentPlayerId = turnOrder[currentTurnIndex];
                 const isMyTurn = currentPlayerId === playerId;
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
@@ -2043,6 +2065,140 @@
                                 </div>
                             </div>
                         </div>
+
+                        {/* МОДАЛЬНА СЕКЦІЯ: Голосування за підробного художника */}
+                        {gameState === 'voting_fake' && (
+                            <div className="modal-section" style={{ maxWidth: '800px', margin: '20px auto' }}>
+                                <h2 style={{ fontSize: '22px', marginBottom: '10px', textAlign: 'center' }}>
+                                    Хто підробний художник? 🎭
+                                </h2>
+                                <p style={{ fontSize: '14px', marginBottom: '15px', textAlign: 'center', color: '#666' }}>
+                                    Проголосуйте за гравця, якого ви підозрюєте
+                                </p>
+                                <p style={{ fontSize: '16px', color: votingTimeLeft <= 5 ? '#ff0000' : '#666', textAlign: 'center', marginBottom: '15px' }}>
+                                    ⏱️ {votingTimeLeft} сек.
+                                </p>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                    gap: '10px',
+                                    marginBottom: '10px'
+                                }}>
+                                    {roomData?.players?.map(player => (
+                                        <button
+                                            key={player.id}
+                                            onClick={() => {
+                                                setMyVoteForFake(player.id);
+                                                if (socket) {
+                                                    socket.emit('vote_fake_artist', { suspectId: player.id });
+                                                }
+                                            }}
+                                            className={`btn ${myVoteForFake === player.id ? 'btn-danger' : 'btn-secondary'}`}
+                                            disabled={myVoteForFake !== null}
+                                            style={{
+                                                padding: '10px',
+                                                fontSize: '14px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '20px',
+                                                height: '20px',
+                                                borderRadius: '50%',
+                                                background: player.color || '#ccc'
+                                            }}></div>
+                                            <span style={{ fontSize: '13px' }}>
+                                                {player.name}
+                                                {player.id === playerId && ' (Ви)'}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {myVoteForFake && (
+                                    <div style={{ textAlign: 'center', marginTop: '10px', color: '#4CAF50', fontSize: '14px' }}>
+                                        ✓ Ваш голос збережено. Очікування інших гравців...
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* МОДАЛЬНА СЕКЦІЯ: Підробний художник вгадує слово */}
+                        {gameState === 'fake_guessing' && (() => {
+                            const isFakeArtist = playerCard?.isFake;
+
+                            return (
+                                <div className="modal-section" style={{ maxWidth: '600px', margin: '20px auto' }}>
+                                    {isFakeArtist ? (
+                                        <>
+                                            <h2 style={{ fontSize: '22px', marginBottom: '10px', textAlign: 'center' }}>
+                                                Вас спіймали! 🎭
+                                            </h2>
+                                            <p style={{ fontSize: '14px', marginBottom: '10px', textAlign: 'center' }}>
+                                                Спробуйте вгадати загадане слово з категорії: <strong>{currentTheme}</strong>
+                                            </p>
+                                            <p style={{ fontSize: '16px', color: guessingTimeLeft <= 10 ? '#ff0000' : '#666', marginBottom: '15px', textAlign: 'center' }}>
+                                                ⏱️ {guessingTimeLeft} сек.
+                                            </p>
+
+                                            <div style={{ textAlign: 'center' }}>
+                                                <input
+                                                    type="text"
+                                                    value={fakeGuessInput}
+                                                    onChange={(e) => setFakeGuessInput(e.target.value)}
+                                                    placeholder="Введіть ваше припущення..."
+                                                    style={{
+                                                        padding: '10px',
+                                                        fontSize: '16px',
+                                                        width: '300px',
+                                                        maxWidth: '90%',
+                                                        borderRadius: '5px',
+                                                        border: '2px solid #ccc',
+                                                        marginBottom: '10px'
+                                                    }}
+                                                    onKeyPress={(e) => {
+                                                        if (e.key === 'Enter' && fakeGuessInput.trim()) {
+                                                            if (socket) {
+                                                                socket.emit('submit_fake_guess', { guess: fakeGuessInput.trim() });
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+
+                                                <div>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (socket && fakeGuessInput.trim()) {
+                                                                socket.emit('submit_fake_guess', { guess: fakeGuessInput.trim() });
+                                                            }
+                                                        }}
+                                                        className="btn btn-primary"
+                                                        disabled={!fakeGuessInput.trim()}
+                                                        style={{ fontSize: '16px', padding: '10px 30px' }}
+                                                    >
+                                                        Підтвердити відповідь
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h2 style={{ fontSize: '22px', marginBottom: '10px', textAlign: 'center' }}>
+                                                Підробного художника спіймано! 🎭
+                                            </h2>
+                                            <p style={{ fontSize: '16px', textAlign: 'center' }}>
+                                                Зараз він намагається вгадати слово...
+                                            </p>
+                                            <div style={{ fontSize: '32px', margin: '20px 0', textAlign: 'center' }}>⏳</div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 );
             }
@@ -2063,137 +2219,6 @@
                         isHost={isHost}
                         endRound={endRound}
                     />
-                );
-            }
-
-            // UNICORN CANVAS: Голосування за підробного художника
-            if (gameState === 'voting_fake') {
-                const handleVote = (targetId) => {
-                    setMyVoteForFake(targetId);
-                    if (socket) {
-                        socket.emit('vote_fake_artist', { suspectId: targetId });
-                    }
-                };
-
-                return (
-                    <div className="lobby-container">
-                        <div className="lobby">
-                            <h1>Хто підробний художник?</h1>
-                            <p style={{ fontSize: '18px', marginBottom: '20px' }}>
-                                Проголосуйте за гравця, якого ви підозрюєте
-                            </p>
-                            <p style={{ fontSize: '16px', color: votingTimeLeft <= 5 ? '#ff0000' : '#666' }}>
-                                ⏱️ {votingTimeLeft} сек.
-                            </p>
-
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                gap: '15px',
-                                maxWidth: '600px',
-                                margin: '30px auto'
-                            }}>
-                                {roomData?.players?.map(player => (
-                                    <button
-                                        key={player.id}
-                                        onClick={() => handleVote(player.id)}
-                                        className={`btn ${myVoteForFake === player.id ? 'btn-danger' : 'btn-secondary'}`}
-                                        disabled={myVoteForFake !== null}
-                                        style={{
-                                            padding: '20px',
-                                            fontSize: '16px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            justifyContent: 'center'
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: '30px',
-                                            height: '30px',
-                                            borderRadius: '50%',
-                                            background: player.color || '#ccc'
-                                        }}></div>
-                                        {player.name}
-                                        {player.id === playerId && ' (Ви)'}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {myVoteForFake && (
-                                <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
-                                    ✓ Ваш голос збережено. Очікування інших гравців...
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                );
-            }
-
-            // UNICORN CANVAS: Підробний художник вгадує слово
-            if (gameState === 'fake_guessing') {
-                const handleSubmitGuess = () => {
-                    if (socket && fakeGuessInput.trim()) {
-                        socket.emit('submit_fake_guess', { guess: fakeGuessInput.trim() });
-                    }
-                };
-
-                const isFakeArtist = playerCard?.isFake;
-
-                return (
-                    <div className="lobby-container">
-                        <div className="lobby">
-                            {isFakeArtist ? (
-                                <>
-                                    <h1>Вас спіймали! 🎭</h1>
-                                    <p style={{ fontSize: '18px', marginBottom: '20px' }}>
-                                        Спробуйте вгадати загадане слово з категорії: <strong>{currentTheme}</strong>
-                                    </p>
-                                    <p style={{ fontSize: '16px', color: guessingTimeLeft <= 10 ? '#ff0000' : '#666', marginBottom: '30px' }}>
-                                        ⏱️ {guessingTimeLeft} сек.
-                                    </p>
-
-                                    <input
-                                        type="text"
-                                        value={fakeGuessInput}
-                                        onChange={(e) => setFakeGuessInput(e.target.value)}
-                                        placeholder="Введіть ваше припущення..."
-                                        style={{
-                                            padding: '15px',
-                                            fontSize: '18px',
-                                            width: '400px',
-                                            maxWidth: '90%',
-                                            borderRadius: '5px',
-                                            border: '2px solid #ccc',
-                                            marginBottom: '20px'
-                                        }}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') handleSubmitGuess();
-                                        }}
-                                    />
-
-                                    <div>
-                                        <button
-                                            onClick={handleSubmitGuess}
-                                            className="btn btn-primary"
-                                            disabled={!fakeGuessInput.trim()}
-                                            style={{ fontSize: '18px', padding: '15px 40px' }}
-                                        >
-                                            Підтвердити відповідь
-                                        </button>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <h1>Підробного художника спіймано!</h1>
-                                    <p style={{ fontSize: '18px' }}>
-                                        Зараз він намагається вгадати слово...
-                                    </p>
-                                    <div style={{ fontSize: '48px', margin: '40px 0' }}>⏳</div>
-                                </>
-                            )}
-                        </div>
-                    </div>
                 );
             }
 
