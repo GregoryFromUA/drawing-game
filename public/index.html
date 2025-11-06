@@ -1278,10 +1278,10 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number, correct, targetAssignment }) => {
-                    console.log('✅ guess_accepted:', { targetId, number, correct, targetAssignment }); // DEBUG
-                    setMyGuesses(prev => ({ ...prev, [targetId]: number }));
-                    setUsedNumbers(prev => new Set([...prev, number]));
+                newSocket.on('guess_accepted', ({ targetId, number, letter, correct, targetAssignment }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, letter, correct, targetAssignment }); // DEBUG
+                    setMyGuesses(prev => ({ ...prev, [targetId]: { letter, number } }));
+                    setUsedNumbers(prev => new Set([...prev, `${letter}${number}`]));
 
                     // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
                     // Вместо этого сохраняем правильный ответ в myGuessResults
@@ -1289,6 +1289,7 @@
                         const newResults = {
                             ...prev,
                             [targetId]: {
+                                letter,
                                 number,
                                 correct,
                                 // Сохраняем правильное assignment от сервера
@@ -1663,9 +1664,9 @@
                 }
             };
 
-            const makeGuess = (targetId, number) => {
-                if (socket && !myGuesses[targetId] && !usedNumbers.has(number)) {
-                    socket.emit('make_guess', { targetId, number });
+            const makeGuess = (targetId, number, letter) => {
+                if (socket && !myGuesses[targetId]) {
+                    socket.emit('make_guess', { targetId, number, letter });
                 }
             };
 
@@ -3054,8 +3055,8 @@
                     return updated;
                 });
 
-                // Відправляємо на сервер
-                makeGuess(targetPlayerId, wordData.number);
+                // ВИПРАВЛЕНО: Відправляємо на сервер і букву, і номер
+                makeGuess(targetPlayerId, wordData.number, wordData.letter);
 
                 // Скидаємо селекти
                 setSelectedWord(null);

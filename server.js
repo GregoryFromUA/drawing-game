@@ -368,7 +368,7 @@ class GameRoom {
     }
   }
 
-  makeGuess(guesserId, targetId, number) {
+  makeGuess(guesserId, targetId, number, letter) {
     // Перевіряємо чи не себе відгадує
     if (guesserId === targetId) return false;
 
@@ -380,9 +380,11 @@ class GameRoom {
     const guesserGuesses = this.guesses.get(guesserId);
     if (guesserGuesses.has(targetId)) return false;
 
-    // Перевіряємо чи не використаний вже цей номер
-    const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
-    if (usedNumbers.has(number)) return false;
+    // Перевіряємо чи не використана вже ця комбінація (letter + number)
+    const usedCombinations = new Set(
+      Array.from(guesserGuesses.values()).map(g => `${g.letter}${g.number}`)
+    );
+    if (usedCombinations.has(`${letter}${number}`)) return false;
 
     // DEBUG: Виводимо повну інформацію про здогадку
     const targetAssignment = this.roundData.assignments.get(targetId);
@@ -391,10 +393,10 @@ class GameRoom {
     console.log(`\n🔍 GUESS DEBUG:`);
     console.log(`  Guesser: ${guesserId} (has: ${guesserAssignment?.letter}${guesserAssignment?.number} "${guesserAssignment?.word}")`);
     console.log(`  Target: ${targetId} (has: ${targetAssignment?.letter}${targetAssignment?.number} "${targetAssignment?.word}")`);
-    console.log(`  Guessed number: ${number} (type: ${typeof number})`);
-    console.log(`  Target number: ${targetAssignment?.number} (type: ${typeof targetAssignment?.number})`);
-    console.log(`  Comparison: ${number} === ${targetAssignment?.number} = ${number === targetAssignment?.number}`);
-    console.log(`  Loose comparison: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
+    console.log(`  Guessed: ${letter}${number} (letter type: ${typeof letter}, number type: ${typeof number})`);
+    console.log(`  Target: ${targetAssignment?.letter}${targetAssignment?.number} (letter type: ${typeof targetAssignment?.letter}, number type: ${typeof targetAssignment?.number})`);
+    console.log(`  Letter match: ${letter} === ${targetAssignment?.letter} = ${letter === targetAssignment?.letter}`);
+    console.log(`  Number match: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
 
     // Выводим ВСЕ assignments для контекста
     console.log(`\n  📋 ALL ASSIGNMENTS IN THIS ROUND:`);
@@ -403,13 +405,16 @@ class GameRoom {
       console.log(`    ${marker} ${pid}: ${assignment.letter}${assignment.number} "${assignment.word}"`);
     }
 
-    // Перевіряємо правильність - ВИКОРИСТОВУЄМО LOOSE COMPARISON на випадок string vs number
-    const correct = targetAssignment && (number == targetAssignment.number);
+    // ВИПРАВЛЕНО: Перевіряємо правильність - порівнюємо І БУКВУ, І НОМЕР
+    const correct = targetAssignment &&
+                   (letter === targetAssignment.letter) &&
+                   (number == targetAssignment.number);
 
     console.log(`  RESULT: ${correct ? '✅ CORRECT' : '❌ INCORRECT'}\n`);
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
+      letter,
       number,
       time: Date.now(),
       correct
@@ -1415,18 +1420,19 @@ io.on('connection', (socket) => {
   });
 
   // Здогадка
-  socket.on('make_guess', ({ targetId, number }) => {
+  socket.on('make_guess', ({ targetId, number, letter }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
 
-    const result = room.makeGuess(currentPlayerId, targetId, number);
+    const result = room.makeGuess(currentPlayerId, targetId, number, letter);
 
     if (result && result.success) {
       // ВИПРАВЛЕНО: Додаємо correct та правильне assignment до відповіді
-      console.log(`✅ Player ${currentPlayerId} guessed ${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
+      console.log(`✅ Player ${currentPlayerId} guessed ${letter}${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
 
       socket.emit('guess_accepted', {
         targetId,
+        letter,
         number,
         correct: result.correct,
         // Відправляємо правильне assignment (letter, number, word) щоб клієнт знав яке слово насправді загадане
@@ -1438,7 +1444,7 @@ io.on('connection', (socket) => {
         playerId: targetId
       });
     } else {
-      socket.emit('guess_rejected', { targetId, number });
+      socket.emit('guess_rejected', { targetId, letter, number });
     }
   });
   
