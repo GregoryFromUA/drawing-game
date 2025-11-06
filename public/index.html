@@ -660,6 +660,14 @@
             background: #f1f8e9;
         }
 
+        /* НОВЕ: Стиль для очікування показу правильних відповідей */
+        .drawing-card.pending {
+            border: 3px solid #2196f3 !important;
+            background: #e3f2fd !important;
+            box-shadow: 0 0 12px rgba(33, 150, 243, 0.6) !important;
+            cursor: not-allowed;
+        }
+
         /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
         .drawing-card.correct {
             border: 3px solid #4caf50 !important;
@@ -773,11 +781,10 @@
         .word-item:hover {
             background: #e8e8e8;
         }
-        
+
         .word-item.my-word {
             background: #ffd700;
             font-weight: bold;
-            animation: pulse 2s infinite;
         }
 
         /* Нові стилі для системи відгадування */
@@ -794,6 +801,18 @@
             font-weight: bold;
             border: 2px solid #4c6ef5;
             box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        /* НОВЕ: Стиль для очікування показу правильних відповідей */
+        .word-item.pending {
+            background: #2196f3 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #1976d2;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
         }
 
         /* НОВЕ: Стилі для правильних/неправильних відповідей */
@@ -3495,15 +3514,15 @@
                                                myGuessResults[pid]?.targetAssignment?.number === number
                                     );
 
-                                    // ВИПРАВЛЕНО: Слово правильне якщо: користувач вибрав і correct=true АБО (це targetAssignment І showCorrectAnswers=true)
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined && showCorrectAnswers);
-                                    // Слово неправильне якщо: користувач вибрав і correct=false
-                                    const isIncorrect = userGuessResult?.correct === false;
+                                    // ВИПРАВЛЕНО: Логіка відображення станів
+                                    const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
+                                    const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false);
 
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
@@ -3547,15 +3566,15 @@
                                                myGuessResults[pid]?.targetAssignment?.number === number
                                     );
 
-                                    // ВИПРАВЛЕНО: Слово правильне якщо: користувач вибрав і correct=true АБО (це targetAssignment І showCorrectAnswers=true)
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined && showCorrectAnswers);
-                                    // Слово неправильне якщо: користувач вибрав і correct=false
-                                    const isIncorrect = userGuessResult?.correct === false;
+                                    // ВИПРАВЛЕНО: Логіка відображення станів
+                                    const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
+                                    const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false);
 
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
@@ -3723,20 +3742,27 @@
                 lastDrawnIndexRef.current = drawing.length;
             }, [drawing, canvasSize]);
 
-            // НОВЕ: Визначаємо чи відповідь правильна/неправильна
-            const isCorrect = guessResult?.correct === true;
-            const isIncorrect = guessResult?.correct === false;
+            // ВИПРАВЛЕНО: Логіка відображення станів
+            const isPending = wordAssignment && !showCorrectAnswers; // Вибрано, але відповіді не показані
+            const isCorrect = showCorrectAnswers && ((guessResult?.correct === true) || guessResult?.targetAssignment);
+            const isIncorrect = showCorrectAnswers && (guessResult?.correct === false);
 
             // ВИПРАВЛЕНО: Логіка відображення слова
             // 1. Якщо користувач вибрав слово (wordAssignment) - показуємо його
             // 2. Якщо НЕТ wordAssignment, але є правильне слово (targetAssignment) І showCorrectAnswers=true - показуємо правильне
             let displayWord = null;
-            let wordColor = '#4caf50';
+            let wordColor = '#2196f3'; // За замовчуванням голубий
 
             if (wordAssignment) {
-                // Користувач вибрав слово - показуємо його з кольором залежно від правильності
+                // Користувач вибрав слово - показуємо його
                 displayWord = wordAssignment.word;
-                wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
+                if (isPending) {
+                    wordColor = '#2196f3'; // Голубий поки не показані відповіді
+                } else if (guessResult?.correct === true) {
+                    wordColor = '#4caf50'; // Зелений якщо правильно
+                } else if (guessResult?.correct === false) {
+                    wordColor = '#f44336'; // Червоний якщо неправильно
+                }
             } else if (guessResult?.targetAssignment && showCorrectAnswers) {
                 // Користувач не вибрав, але хост показав правильні відповіді
                 displayWord = guessResult.targetAssignment.word;
@@ -3747,7 +3773,7 @@
 
             return (
                 <div
-                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                     data-player-id={player.id}
                     onClick={onClick}
                     onDragOver={onDragOver}
