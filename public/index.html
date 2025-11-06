@@ -1513,6 +1513,11 @@
                 for (let i = lastDrawnIndexRef.current; i < sharedDrawing.length; i++) {
                     const stroke = sharedDrawing[i];
 
+                    // ВИПРАВЛЕНО: Пропускаємо свої власні штрихи (вони вже намальовані локально)
+                    if (stroke.playerId === playerId) {
+                        continue;
+                    }
+
                     if (stroke.type === 'start') {
                         ctx.beginPath();
                         ctx.strokeStyle = stroke.color || '#000000';
@@ -1918,8 +1923,8 @@
                     ctx.beginPath();
                     ctx.moveTo(x, y);
 
-                    // ВИПРАВЛЕНО: Відправляємо колір у штрихах!
-                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height, color: myColor };
+                    // ВИПРАВЛЕНО: Відправляємо колір та playerId у штрихах!
+                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height, color: myColor, playerId };
                     strokeBufferRef.current.push(stroke);
                 };
 
@@ -1947,8 +1952,8 @@
                     lastXRef.current = x;
                     lastYRef.current = y;
 
-                    // ВИПРАВЛЕНО: Відправляємо колір у штрихах!
-                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height, color: myColor };
+                    // ВИПРАВЛЕНО: Відправляємо колір та playerId у штрихах!
+                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height, color: myColor, playerId };
                     strokeBufferRef.current.push(stroke);
 
                     // Оновлюємо custom cursor
