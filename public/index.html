@@ -1316,6 +1316,11 @@
                     setSharedDrawing(sharedDrawing);
                 });
 
+                // ВИПРАВЛЕНО: Батчинг штрихів (оптимізація)
+                newSocket.on('drawing_strokes_added', ({ strokes, sharedDrawing }) => {
+                    setSharedDrawing(sharedDrawing);
+                });
+
                 newSocket.on('next_turn', ({ currentTurnIndex, currentDrawingRound, currentPlayerId, state }) => {
                     setCurrentTurnIndex(currentTurnIndex);
                     setCurrentDrawingRound(currentDrawingRound);
@@ -1702,44 +1707,115 @@
                 const isMyTurn = currentPlayerId === playerId;
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
 
+                // ВИПРАВЛЕНО: Оптимізована система рисування
+                const canvasBoundsRef = useRef(null);
+                const strokeBufferRef = useRef([]);
+                const lastXRef = useRef(null);
+                const lastYRef = useRef(null);
+                const customCursorRef = useRef(null);
+                const ctxRef = useRef(null);
+
+                // Кешування розмірів canvas
+                useEffect(() => {
+                    const canvas = canvasRef.current;
+                    if (canvas) {
+                        const updateBounds = () => {
+                            canvasBoundsRef.current = canvas.getBoundingClientRect();
+                        };
+                        updateBounds();
+                        window.addEventListener('resize', updateBounds);
+                        return () => window.removeEventListener('resize', updateBounds);
+                    }
+                }, []);
+
+                // Батчинг для socket.emit
+                useEffect(() => {
+                    if (gameState !== 'unicorn_drawing') return;
+
+                    let animationFrameId;
+                    const sendStrokes = () => {
+                        if (strokeBufferRef.current.length > 0 && socket) {
+                            socket.emit('unicorn_drawing_strokes', {
+                                strokes: strokeBufferRef.current
+                            });
+                            strokeBufferRef.current = [];
+                        }
+                        animationFrameId = requestAnimationFrame(sendStrokes);
+                    };
+                    animationFrameId = requestAnimationFrame(sendStrokes);
+                    return () => cancelAnimationFrame(animationFrameId);
+                }, [gameState, socket]);
+
+                // Оновлення custom cursor
+                const updateCustomCursor = useCallback((x, y) => {
+                    if (!customCursorRef.current) return;
+                    customCursorRef.current.style.left = `${x}px`;
+                    customCursorRef.current.style.top = `${y}px`;
+                }, []);
+
                 const startDrawing = (e) => {
-                    if (!isMyTurn) return;
+                    if (!isMyTurn || !canvasBoundsRef.current) return;
 
                     const canvas = canvasRef.current;
-                    const rect = canvas.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / canvas.width;
-                    const y = (e.clientY - rect.top) / canvas.height;
+                    const rect = canvasBoundsRef.current;
+                    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
                     setIsDrawing(true);
-                    const stroke = { type: 'start', x, y };
-                    setCurrentStroke([stroke]);
+                    lastXRef.current = x;
+                    lastYRef.current = y;
 
-                    if (socket) {
-                        socket.emit('unicorn_drawing_stroke', { stroke });
+                    // Отримуємо контекст
+                    if (!ctxRef.current) {
+                        ctxRef.current = canvas.getContext('2d');
+                        ctxRef.current.lineCap = 'round';
+                        ctxRef.current.lineJoin = 'round';
                     }
+
+                    const ctx = ctxRef.current;
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+
+                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height };
+                    strokeBufferRef.current.push(stroke);
                 };
 
                 const draw = (e) => {
-                    if (!isMyTurn || !isDrawing) return;
+                    if (!isMyTurn || !isDrawing || !canvasBoundsRef.current) return;
+
+                    e.preventDefault();
 
                     const canvas = canvasRef.current;
-                    const rect = canvas.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / canvas.width;
-                    const y = (e.clientY - rect.top) / canvas.height;
+                    const rect = canvasBoundsRef.current;
+                    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-                    const stroke = { type: 'draw', x, y };
-                    setCurrentStroke(prev => [...prev, stroke]);
+                    // Малюємо локально
+                    const ctx = ctxRef.current;
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
 
-                    if (socket) {
-                        socket.emit('unicorn_drawing_stroke', { stroke });
-                    }
+                    lastXRef.current = x;
+                    lastYRef.current = y;
+
+                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height };
+                    strokeBufferRef.current.push(stroke);
+
+                    // Оновлюємо custom cursor
+                    updateCustomCursor(e.clientX, e.clientY);
                 };
 
                 const stopDrawing = () => {
                     if (!isMyTurn || !isDrawing) return;
 
                     setIsDrawing(false);
-                    setCurrentStroke([]);
+                    lastXRef.current = null;
+                    lastYRef.current = null;
+
+                    const stroke = { type: 'end' };
+                    strokeBufferRef.current.push(stroke);
 
                     // Хід завершено - відправляємо на сервер
                     if (socket) {
@@ -1830,7 +1906,7 @@
                             </div>
 
                             {/* Центр: Спільний канвас */}
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, position: 'relative' }}>
                                 <h2 style={{ textAlign: 'center', marginBottom: '10px' }}>
                                     Спільний малюнок
                                 </h2>
@@ -1839,21 +1915,56 @@
                                     width={800}
                                     height={600}
                                     onMouseDown={startDrawing}
-                                    onMouseMove={draw}
+                                    onMouseMove={(e) => {
+                                        draw(e);
+                                        updateCustomCursor(e.clientX, e.clientY);
+                                    }}
                                     onMouseUp={stopDrawing}
-                                    onMouseLeave={stopDrawing}
+                                    onMouseLeave={() => {
+                                        stopDrawing();
+                                        if (customCursorRef.current) {
+                                            customCursorRef.current.style.display = 'none';
+                                        }
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (isMyTurn && customCursorRef.current) {
+                                            customCursorRef.current.style.display = 'block';
+                                            updateCustomCursor(e.clientX, e.clientY);
+                                        }
+                                    }}
                                     style={{
                                         border: '2px solid #333',
                                         borderRadius: '10px',
                                         background: 'white',
-                                        cursor: isMyTurn ? 'crosshair' : 'not-allowed',
+                                        cursor: isMyTurn ? 'none' : 'not-allowed',
                                         display: 'block',
-                                        margin: '0 auto'
+                                        margin: '0 auto',
+                                        touchAction: 'none'
                                     }}
                                 />
                                 <div style={{ textAlign: 'center', marginTop: '10px', color: '#666' }}>
                                     {isMyTurn ? 'Намалюйте одну лінію (відпустіть мишу щоб завершити хід)' : 'Чекайте свого ходу...'}
                                 </div>
+
+                                {/* ВИПРАВЛЕНО: Custom cursor */}
+                                {isMyTurn && (
+                                    <div
+                                        ref={customCursorRef}
+                                        style={{
+                                            position: 'fixed',
+                                            width: '10px',
+                                            height: '10px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#000000',
+                                            pointerEvents: 'none',
+                                            zIndex: 9999,
+                                            transform: 'translate(-50%, -50%)',
+                                            display: 'none',
+                                            border: '2px solid white',
+                                            boxShadow: '0 0 3px rgba(0,0,0,0.5)'
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             {/* Права панель: Очки */}

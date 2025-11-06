@@ -1570,6 +1570,33 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ВИПРАВЛЕНО: Батчинг штрихів (оптимізація)
+  socket.on('unicorn_drawing_strokes', ({ strokes }) => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || room.mode !== 'unicorn_canvas' || room.state !== 'drawing') return;
+    if (!strokes || strokes.length === 0) return;
+
+    // Додаємо всі штрихи
+    let success = false;
+    strokes.forEach(stroke => {
+      if (room.addDrawingStroke(currentPlayerId, stroke)) {
+        success = true;
+      }
+    });
+
+    if (success) {
+      // Broadcast всі штрихи разом
+      io.to(currentRoomCode).emit('drawing_strokes_added', {
+        strokes: strokes.map(stroke => ({
+          ...stroke,
+          playerId: currentPlayerId,
+          color: room.playerColors.get(currentPlayerId)
+        })),
+        sharedDrawing: room.sharedDrawing
+      });
+    }
+  });
+
   // Завершення штриху (гравець відпустив мишу)
   socket.on('stroke_finished', () => {
     const room = rooms.get(currentRoomCode);
