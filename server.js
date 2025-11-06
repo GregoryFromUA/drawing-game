@@ -523,6 +523,25 @@ class GameRoom {
     return this.currentRound >= ROUNDS_PER_GAME;
   }
 
+  // НОВЕ: Метод для отримання прогресу здогадок кожного гравця (для хоста)
+  getGuessProgress() {
+    const progress = {};
+    const totalToGuess = this.players.size - 1; // Кожен гравець повинен відгадати всіх, крім себе
+
+    for (let [playerId, player] of this.players) {
+      const guesserGuesses = this.guesses.get(playerId);
+      const guessedCount = guesserGuesses ? guesserGuesses.size : 0;
+
+      progress[playerId] = {
+        name: player.name,
+        guessed: guessedCount,
+        total: totalToGuess
+      };
+    }
+
+    return progress;
+  }
+
   getState() {
     return {
       code: this.code,
@@ -1324,6 +1343,14 @@ io.on('connection', (socket) => {
           players: Array.from(room.players.values())
         });
       }
+
+      // НОВЕ: Відправляємо початковий прогрес здогадок хосту
+      const hostPlayer = Array.from(room.players.values()).find(p => p.id === room.hostId);
+      if (hostPlayer && hostPlayer.socketId) {
+        io.to(hostPlayer.socketId).emit('guess_progress_update', {
+          progress: room.getGuessProgress()
+        });
+      }
     }
   });
 
@@ -1451,6 +1478,14 @@ io.on('connection', (socket) => {
       io.to(currentRoomCode).emit('drawing_locked', {
         playerId: targetId
       });
+
+      // НОВЕ: Відправляємо оновлений прогрес здогадок хосту
+      const hostPlayer = Array.from(room.players.values()).find(p => p.id === room.hostId);
+      if (hostPlayer && hostPlayer.socketId) {
+        io.to(hostPlayer.socketId).emit('guess_progress_update', {
+          progress: room.getGuessProgress()
+        });
+      }
     } else {
       socket.emit('guess_rejected', { targetId, letter, number });
     }

@@ -1195,6 +1195,7 @@
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
+            const [guessProgress, setGuessProgress] = useState({}); // НОВЕ: Прогрес здогадок гравців (для хоста)
 
             // Unicorn Canvas (Fake Artist) state
             const [unicornMode, setUnicornMode] = useState(false); // Чи гра в режимі Unicorn Canvas
@@ -1346,6 +1347,12 @@
                         setAllCorrectAssignments(assignments);
                         console.log('📋 All correct assignments:', assignments);
                     }
+                });
+
+                // НОВЕ: Обробник оновлення прогресу здогадок (тільки для хоста)
+                newSocket.on('guess_progress_update', ({ progress }) => {
+                    setGuessProgress(progress);
+                    console.log('📊 Guess progress updated:', progress);
                 });
 
                 newSocket.on('round_ended', (results) => {
@@ -2545,6 +2552,7 @@
                         makeGuess={makeGuess}
                         isHost={isHost}
                         endRound={endRound}
+                        guessProgress={guessProgress}
                     />
                 );
             }
@@ -2877,7 +2885,8 @@
             isDrawingLocked,
             makeGuess,
             isHost,
-            endRound
+            endRound,
+            guessProgress
         }) {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
@@ -2892,6 +2901,9 @@
             const [draggedWord, setDraggedWord] = useState(null); // {letter, number, word}
             const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
             const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
+
+            // НОВЕ: Таймер раунду
+            const [roundTimer, setRoundTimer] = useState(120); // Початкове значення 120 секунд
 
             // Custom cursor refs (для производительности - без ререндеров)
             const customCursorRef = useRef(null);
@@ -2933,6 +2945,24 @@
                     cancelAnimationFrame(animationFrameId);
                 };
             }, [socket]);
+
+            // НОВЕ: Countdown таймер раунду
+            useEffect(() => {
+                // Скидаємо таймер при зміні раунду
+                setRoundTimer(120);
+            }, [roundData?.round]);
+
+            useEffect(() => {
+                // Запускаємо countdown
+                if (roundTimer > 0) {
+                    const timerId = setTimeout(() => {
+                        setRoundTimer(prev => prev - 1);
+                    }, 1000);
+
+                    return () => clearTimeout(timerId);
+                }
+                // Коли таймер досягає 0, він просто зупиняється
+            }, [roundTimer]);
 
             // Оптимізоване оновлення cursor через пряме DOM маніпулювання
             const updateCustomCursor = useCallback((x, y) => {
@@ -3388,6 +3418,53 @@
                                                 Очистити
                                             </button>
 
+                                            {/* НОВЕ: Прогрес здогадок (тільки для хоста) */}
+                                            {isHost && guessProgress && Object.keys(guessProgress).length > 0 && (
+                                                <div style={{
+                                                    borderTop: '2px solid #e0e0e0',
+                                                    marginTop: '10px',
+                                                    paddingTop: '10px',
+                                                    marginBottom: '10px'
+                                                }}>
+                                                    <label style={{
+                                                        fontSize: '0.8em',
+                                                        color: '#667eea',
+                                                        marginBottom: '8px',
+                                                        display: 'block',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        Прогрес здогадок:
+                                                    </label>
+                                                    <div style={{
+                                                        maxHeight: '200px',
+                                                        overflowY: 'auto',
+                                                        fontSize: '0.85em'
+                                                    }}>
+                                                        {Object.entries(guessProgress).map(([pid, data]) => (
+                                                            <div key={pid} style={{
+                                                                padding: '4px 8px',
+                                                                marginBottom: '3px',
+                                                                background: data.guessed === data.total ? '#d4edda' : '#fff',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #e0e0e0'
+                                                            }}>
+                                                                <span style={{ fontWeight: 'bold', color: '#333' }}>
+                                                                    {data.name}
+                                                                </span>
+                                                                {' '}
+                                                                <span style={{
+                                                                    color: data.guessed === data.total ? '#28a745' : '#666',
+                                                                    fontWeight: '600'
+                                                                }}>
+                                                                    ({data.guessed}/{data.total})
+                                                                </span>
+                                                                {data.guessed === data.total && ' ✓'}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* Кнопка завершення раунду (тільки для хоста) */}
                                             {isHost && otherPlayers.length > 0 && (
                                                 <div style={{
@@ -3437,8 +3514,22 @@
                                 <div className="canvas-section">
                                     {/* Завдання */}
                                     {myAssignment && (
-                                        <div className="task-header">
+                                        <div className="task-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                                            {/* Таймер зліва */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: '15px',
+                                                fontSize: '1.3em',
+                                                fontWeight: 'bold',
+                                                color: roundTimer <= 30 ? '#f44336' : '#333',
+                                                minWidth: '50px'
+                                            }}>
+                                                {roundTimer}
+                                            </div>
+
+                                            {/* Слово-завдання по центру */}
                                             <div className="task-word" style={{
+                                                flex: 1,
                                                 fontSize: (() => {
                                                     const word = myAssignment.word || '';
                                                     const length = word.length;
