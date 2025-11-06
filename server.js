@@ -663,6 +663,11 @@ class FakeArtistGame {
     this.state = 'theme_selection';
     this.playerThemeVotes.clear();
 
+    // Вибираємо 10 випадкових тем для показу гравцям
+    const allThemes = Object.keys(FAKE_ARTIST_THEMES);
+    const shuffled = [...allThemes].sort(() => Math.random() - 0.5);
+    this.displayedThemes = shuffled.slice(0, 10);
+
     // Таймер 30 секунд
     this.themeSelectionTimer = setTimeout(() => {
       this.finishThemeSelection();
@@ -685,6 +690,8 @@ class FakeArtistGame {
   }
 
   finishThemeSelection() {
+    console.log(`Finishing theme selection. Votes received: ${this.playerThemeVotes.size}/${this.players.size}`);
+
     // Збираємо всі унікальні теми
     const allVotedThemes = new Set();
     for (let themes of this.playerThemeVotes.values()) {
@@ -693,9 +700,9 @@ class FakeArtistGame {
 
     this.selectedThemesPool = Array.from(allVotedThemes);
 
-    // Якщо менше 5 тем, додаємо випадкові
+    // Якщо менше 5 тем, додаємо випадкові з показаних 10 тем
     if (this.selectedThemesPool.length < 5) {
-      const remainingThemes = this.availableThemes.filter(t => !this.selectedThemesPool.includes(t));
+      const remainingThemes = this.displayedThemes.filter(t => !this.selectedThemesPool.includes(t));
       while (this.selectedThemesPool.length < 5 && remainingThemes.length > 0) {
         const randomIndex = Math.floor(Math.random() * remainingThemes.length);
         this.selectedThemesPool.push(remainingThemes[randomIndex]);
@@ -1241,7 +1248,7 @@ io.on('connection', (socket) => {
       room.startThemeSelection();
 
       io.to(currentRoomCode).emit('theme_selection_started', {
-        availableThemes: room.availableThemes,
+        availableThemes: room.displayedThemes,
         state: room.getState()
       });
       return;
@@ -1322,7 +1329,7 @@ io.on('connection', (socket) => {
     newRoom.startThemeSelection();
 
     io.to(roomCode).emit('theme_selection_started', {
-      availableThemes: newRoom.availableThemes,
+      availableThemes: newRoom.displayedThemes,
       state: newRoom.getState()
     });
 

@@ -1158,6 +1158,7 @@
             const [currentDrawingRound, setCurrentDrawingRound] = useState(1); // 1 або 2
             const [unicornRoundResults, setUnicornRoundResults] = useState(null); // Результати раунду
             const [fakeArtistGuess, setFakeArtistGuess] = useState(''); // Здогадка підробного
+            const [themeSelectionTimeLeft, setThemeSelectionTimeLeft] = useState(30); // Таймер вибору тем
 
             // Ініціалізація Socket.io
             useEffect(() => {
@@ -1279,6 +1280,7 @@
                     setAvailableThemes(availableThemes);
                     setGameState('theme_selection');
                     setRoomData(state);
+                    setThemeSelectionTimeLeft(30); // Скидаємо таймер
                 });
 
                 newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, state }) => {
@@ -1351,7 +1353,24 @@
                     newSocket.close();
                 };
             }, []);
-            
+
+            // Таймер вибору тем
+            useEffect(() => {
+                if (gameState === 'theme_selection' && themeSelectionTimeLeft > 0) {
+                    const timer = setInterval(() => {
+                        setThemeSelectionTimeLeft(prev => {
+                            if (prev <= 1) {
+                                clearInterval(timer);
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+
+                    return () => clearInterval(timer);
+                }
+            }, [gameState, themeSelectionTimeLeft]);
+
             // Обробники подій
             const createRoom = () => {
                 if (playerName.trim() && socket) {
@@ -1546,7 +1565,7 @@
                                                     {roomData?.players?.length < 3 ? 'Мінімум 3' : 'Doodle Prophet'}
                                                 </button>
                                                 <button
-                                                    className="btn btn-secondary"
+                                                    className="btn btn-primary"
                                                     onClick={startUnicornCanvas}
                                                     disabled={roomData?.players?.length < 3 || !roomData?.players?.every(p => p.ready)}
                                                 >
@@ -1585,7 +1604,7 @@
                     <div className="lobby-container">
                         <div className="lobby">
                             <h1>Оберіть 5 тем для гри</h1>
-                            <p>Таймер: 30 секунд</p>
+                            <p>Таймер: {themeSelectionTimeLeft} {themeSelectionTimeLeft === 1 ? 'секунда' : themeSelectionTimeLeft < 5 ? 'секунди' : 'секунд'}</p>
                             <p>Обрано: {selectedThemes.length}/5</p>
 
                             <div className="theme-grid" style={{
