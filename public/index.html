@@ -1212,6 +1212,7 @@
             const [myVoteForFake, setMyVoteForFake] = useState(null);
             const [fakeGuessInput, setFakeGuessInput] = useState('');
             const [myVoteForAnswer, setMyVoteForAnswer] = useState(null);
+            const [showRules, setShowRules] = useState(false);
 
             // Ініціалізація Socket.io
             useEffect(() => {
@@ -1353,7 +1354,7 @@
                     setAvailableThemes(availableThemes);
                     setGameState('theme_selection');
                     setRoomData(state);
-                    setThemeSelectionTimeLeft(30); // Скидаємо таймер
+                    setThemeSelectionTimeLeft(20); // Скидаємо таймер
                 });
 
                 newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, state }) => {
@@ -1488,7 +1489,7 @@
             // ВИПРАВЛЕНО: Таймер відгадування
             useEffect(() => {
                 if (gameState === 'fake_guessing') {
-                    setGuessingTimeLeft(60); // Скидаємо при вході в фазу
+                    setGuessingTimeLeft(20); // Скидаємо при вході в фазу
                     const timer = setInterval(() => {
                         setGuessingTimeLeft(prev => {
                             if (prev <= 0) return 0;
@@ -2061,6 +2062,17 @@
                                         ⏱️ {drawingTimeLeft} сек.
                                     </div>
                                 </div>
+
+                                {/* Кнопка "Правила гри" */}
+                                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                                    <button
+                                        onClick={() => setShowRules(true)}
+                                        className="btn btn-secondary"
+                                        style={{ fontSize: '14px', padding: '10px 20px' }}
+                                    >
+                                        ❓ Правила гри
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Центр: Спільний канвас */}
@@ -2152,6 +2164,100 @@
                                 </div>
                             </div>
                         </div>
+
+                        {/* МОДАЛЬНЕ ВІКНО: Правила гри */}
+                        {showRules && (
+                            <div style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                zIndex: 10000
+                            }}>
+                                <div style={{
+                                    backgroundColor: 'white',
+                                    padding: '30px',
+                                    borderRadius: '15px',
+                                    maxWidth: '700px',
+                                    maxHeight: '80vh',
+                                    overflow: 'auto',
+                                    position: 'relative',
+                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                                }}>
+                                    <button
+                                        onClick={() => setShowRules(false)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '15px',
+                                            right: '15px',
+                                            background: 'none',
+                                            border: 'none',
+                                            fontSize: '28px',
+                                            cursor: 'pointer',
+                                            color: '#666'
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+
+                                    <h2 style={{ marginBottom: '20px', color: '#333' }}>Правила гри "Підробний художник"</h2>
+
+                                    <div style={{ lineHeight: '1.6', color: '#555' }}>
+                                        <h3 style={{ marginTop: '15px', color: '#4CAF50' }}>Хід гри:</h3>
+
+                                        <p><strong>1. Вибір тем</strong></p>
+                                        <p>Кожен гравець обирає 5 тем з 12 запропонованих. З обраних тем формується пул завдань для раунду.</p>
+
+                                        <p style={{ marginTop: '15px' }}><strong>2. Роздача карток</strong></p>
+                                        <p>Усім гравцям показується категорія. Справжні художники бачать загадане слово. Один підробний художник бачить "Х" замість слова.</p>
+
+                                        <p style={{ marginTop: '15px' }}><strong>3. Малювання</strong></p>
+                                        <p>Гравці по черзі малюють ОДНУ лінію на спільному полотні. Відпустив мишку - ваше малювання закінчилось.</p>
+                                        <p>Кожен робить 2 ходи. Підробний художник повинен малювати так, щоб не видати себе.</p>
+
+                                        <p style={{ marginTop: '15px' }}><strong>4. Голосування</strong></p>
+                                        <p>Після малювання всі гравці, в тому числі і підробний художник, голосують за підозрілого гравця.</p>
+                                        <p>Якщо більшість голосів набирає підробний художник - він розкривається.</p>
+                                        <p>Якщо більшість голосів вказують на справжнього художника - підробний набирає очки, бо його не викрили.</p>
+
+                                        <p style={{ marginTop: '15px' }}><strong>5. Відгадування</strong></p>
+                                        <p>Якщо підробного знайдено - він може спробувати вгадати слово. Якщо вгадає - отримує очки.</p>
+
+                                        <h3 style={{ marginTop: '20px', color: '#4CAF50' }}>Нарахування очок:</h3>
+                                        <ul style={{ marginLeft: '20px' }}>
+                                            <li>Підробний НЕ знайдений → Підробний: <strong>+2 очка</strong></li>
+                                            <li>Підробний знайдений, але вгадав слово → Підробний: <strong>+2 очка</strong></li>
+                                            <li>Підробний знайдений і НЕ вгадав → Художники: <strong>+1 очко кожен</strong></li>
+                                        </ul>
+
+                                        <div style={{
+                                            marginTop: '20px',
+                                            padding: '15px',
+                                            backgroundColor: '#e8f5e9',
+                                            borderRadius: '8px',
+                                            borderLeft: '4px solid #4CAF50'
+                                        }}>
+                                            <strong>💡 Порада:</strong> Підробний художник повинен уважно спостерігати за малюнками інших і малювати щось схоже.
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginTop: '25px', textAlign: 'center' }}>
+                                        <button
+                                            onClick={() => setShowRules(false)}
+                                            className="btn btn-primary"
+                                            style={{ padding: '10px 30px', fontSize: '16px' }}
+                                        >
+                                            Зрозуміло
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* МОДАЛЬНА СЕКЦІЯ: Голосування за підробного художника */}
                         {gameState === 'voting_fake' && (

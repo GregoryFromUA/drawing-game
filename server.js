@@ -685,20 +685,20 @@ class FakeArtistGame {
     this.state = 'theme_selection';
     this.playerThemeVotes.clear();
 
-    // ВИПРАВЛЕНО: Кожен гравець отримує свій унікальний набір з 10 тем
+    // ВИПРАВЛЕНО: Кожен гравець отримує свій унікальний набір з 12 тем
     const allThemes = Object.keys(FAKE_ARTIST_THEMES);
     this.playerDisplayedThemes = new Map();
 
     for (let [playerId] of this.players) {
       // Перемішуємо теми для кожного гравця окремо
       const shuffled = [...allThemes].sort(() => Math.random() - 0.5);
-      this.playerDisplayedThemes.set(playerId, shuffled.slice(0, 10));
+      this.playerDisplayedThemes.set(playerId, shuffled.slice(0, 12));
     }
 
-    // Таймер 30 секунд
+    // Таймер 20 секунд
     this.themeSelectionTimer = setTimeout(() => {
       this.finishThemeSelection();
-    }, 30000);
+    }, 20000);
   }
 
   submitThemeVotes(playerId, selectedThemes) {
@@ -977,7 +977,7 @@ class FakeArtistGame {
     this.guessTimer = setTimeout(() => {
       // Час вичерпано, підробний не встиг відповісти
       this.finishGuessing(null);
-    }, 60000); // 60 секунд
+    }, 20000); // 20 секунд
   }
 
   submitGuess(playerId, guess) {
