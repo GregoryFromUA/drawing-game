@@ -3517,7 +3517,7 @@
                                     // ВИПРАВЛЕНО: Логіка відображення станів
                                     const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
                                     const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
-                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false);
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false) && (correctAnswerPlayerId === undefined); // Неправильно І НЕ є правильним для інших
 
                                     return (
                                         <div
@@ -3569,7 +3569,7 @@
                                     // ВИПРАВЛЕНО: Логіка відображення станів
                                     const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
                                     const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
-                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false);
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false) && (correctAnswerPlayerId === undefined); // Неправильно І НЕ є правильним для інших
 
                                     return (
                                         <div
@@ -3754,14 +3754,22 @@
             let wordColor = '#2196f3'; // За замовчуванням голубий
 
             if (wordAssignment) {
-                // Користувач вибрав слово - показуємо його
-                displayWord = wordAssignment.word;
+                // Користувач вибрав слово
                 if (isPending) {
-                    wordColor = '#2196f3'; // Голубий поки не показані відповіді
+                    // Показуємо вибране слово голубим
+                    displayWord = wordAssignment.word;
+                    wordColor = '#2196f3';
                 } else if (guessResult?.correct === true) {
-                    wordColor = '#4caf50'; // Зелений якщо правильно
+                    // Показуємо вибране слово зеленим
+                    displayWord = wordAssignment.word;
+                    wordColor = '#4caf50';
                 } else if (guessResult?.correct === false) {
-                    wordColor = '#f44336'; // Червоний якщо неправильно
+                    // ВИПРАВЛЕНО: Показуємо ПРАВИЛЬНЕ слово червоним (щоб гравець побачив правильну відповідь)
+                    displayWord = guessResult?.targetAssignment?.word || wordAssignment.word;
+                    wordColor = '#f44336';
+                } else {
+                    displayWord = wordAssignment.word;
+                    wordColor = '#2196f3';
                 }
             } else if (guessResult?.targetAssignment && showCorrectAnswers) {
                 // Користувач не вибрав, але хост показав правильні відповіді
