@@ -1199,6 +1199,14 @@
             const [isDrawing, setIsDrawing] = useState(false);
             const [currentStroke, setCurrentStroke] = useState([]);
 
+            // ВИПРАВЛЕНО: useRef для Unicorn Canvas (винесені з умовного блоку)
+            const canvasBoundsRef = useRef(null);
+            const strokeBufferRef = useRef([]);
+            const lastXRef = useRef(null);
+            const lastYRef = useRef(null);
+            const customCursorRef = useRef(null);
+            const ctxRef = useRef(null);
+
             // State для голосувань в Unicorn Canvas
             const [myVoteForFake, setMyVoteForFake] = useState(null);
             const [fakeGuessInput, setFakeGuessInput] = useState('');
@@ -1509,6 +1517,46 @@
                 }
             }, [gameState]);
 
+            // ВИПРАВЛЕНО: Кешування розмірів canvas (винесено з умовного блоку)
+            useEffect(() => {
+                if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing') return;
+
+                const canvas = canvasRef.current;
+                if (canvas) {
+                    const updateBounds = () => {
+                        canvasBoundsRef.current = canvas.getBoundingClientRect();
+                    };
+                    updateBounds();
+                    window.addEventListener('resize', updateBounds);
+                    return () => window.removeEventListener('resize', updateBounds);
+                }
+            }, [gameState]);
+
+            // ВИПРАВЛЕНО: Батчинг для socket.emit (винесено з умовного блоку)
+            useEffect(() => {
+                if (gameState !== 'unicorn_drawing') return;
+
+                let animationFrameId;
+                const sendStrokes = () => {
+                    if (strokeBufferRef.current.length > 0 && socket) {
+                        socket.emit('unicorn_drawing_strokes', {
+                            strokes: strokeBufferRef.current
+                        });
+                        strokeBufferRef.current = [];
+                    }
+                    animationFrameId = requestAnimationFrame(sendStrokes);
+                };
+                animationFrameId = requestAnimationFrame(sendStrokes);
+                return () => cancelAnimationFrame(animationFrameId);
+            }, [gameState, socket]);
+
+            // ВИПРАВЛЕНО: useCallback для курсора (винесено з умовного блоку)
+            const updateCustomCursor = useCallback((x, y) => {
+                if (!customCursorRef.current) return;
+                customCursorRef.current.style.left = `${x}px`;
+                customCursorRef.current.style.top = `${y}px`;
+            }, []);
+
             // Обробники подій
             const createRoom = () => {
                 if (playerName.trim() && socket) {
@@ -1775,52 +1823,6 @@
                 const currentPlayerId = turnOrder[currentTurnIndex];
                 const isMyTurn = currentPlayerId === playerId;
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
-
-                // ВИПРАВЛЕНО: Оптимізована система рисування
-                const canvasBoundsRef = useRef(null);
-                const strokeBufferRef = useRef([]);
-                const lastXRef = useRef(null);
-                const lastYRef = useRef(null);
-                const customCursorRef = useRef(null);
-                const ctxRef = useRef(null);
-
-                // Кешування розмірів canvas
-                useEffect(() => {
-                    const canvas = canvasRef.current;
-                    if (canvas) {
-                        const updateBounds = () => {
-                            canvasBoundsRef.current = canvas.getBoundingClientRect();
-                        };
-                        updateBounds();
-                        window.addEventListener('resize', updateBounds);
-                        return () => window.removeEventListener('resize', updateBounds);
-                    }
-                }, []);
-
-                // Батчинг для socket.emit
-                useEffect(() => {
-                    if (gameState !== 'unicorn_drawing') return;
-
-                    let animationFrameId;
-                    const sendStrokes = () => {
-                        if (strokeBufferRef.current.length > 0 && socket) {
-                            socket.emit('unicorn_drawing_strokes', {
-                                strokes: strokeBufferRef.current
-                            });
-                            strokeBufferRef.current = [];
-                        }
-                        animationFrameId = requestAnimationFrame(sendStrokes);
-                    };
-                    animationFrameId = requestAnimationFrame(sendStrokes);
-                    return () => cancelAnimationFrame(animationFrameId);
-                }, [gameState, socket]);
-
-                // Оновлення custom cursor
-                const updateCustomCursor = useCallback((x, y) => {
-                    if (!customCursorRef.current) return;
-                    customCursorRef.current.style.left = `${x}px`;
-                    customCursorRef.current.style.top = `${y}px`;
-                }, []);
 
                 const startDrawing = (e) => {
                     if (!isMyTurn || !canvasBoundsRef.current) return;
