@@ -1356,20 +1356,25 @@
 
             // Таймер вибору тем
             useEffect(() => {
-                if (gameState === 'theme_selection' && themeSelectionTimeLeft > 0) {
+                if (gameState === 'theme_selection') {
                     const timer = setInterval(() => {
                         setThemeSelectionTimeLeft(prev => {
-                            if (prev <= 1) {
-                                clearInterval(timer);
-                                return 0;
-                            }
+                            if (prev <= 0) return 0;
                             return prev - 1;
                         });
                     }, 1000);
 
                     return () => clearInterval(timer);
                 }
-            }, [gameState, themeSelectionTimeLeft]);
+            }, [gameState]);
+
+            // Автоматично відправляємо вибір коли таймер закінчується
+            useEffect(() => {
+                if (gameState === 'theme_selection' && themeSelectionTimeLeft === 0 && socket) {
+                    console.log('Auto-submitting themes:', selectedThemes);
+                    socket.emit('submit_theme_votes', { selectedThemes });
+                }
+            }, [gameState, themeSelectionTimeLeft, socket, selectedThemes]);
 
             // Обробники подій
             const createRoom = () => {
@@ -1594,18 +1599,15 @@
                     });
                 };
 
-                const submitThemes = () => {
-                    if (socket) {
-                        socket.emit('submit_theme_votes', { selectedThemes });
-                    }
-                };
-
                 return (
                     <div className="lobby-container">
                         <div className="lobby">
                             <h1>Оберіть 5 тем для гри</h1>
                             <p>Таймер: {themeSelectionTimeLeft} {themeSelectionTimeLeft === 1 ? 'секунда' : themeSelectionTimeLeft < 5 ? 'секунди' : 'секунд'}</p>
                             <p>Обрано: {selectedThemes.length}/5</p>
+                            <p style={{color: '#999', fontSize: '14px', marginTop: '5px'}}>
+                                Теми відправляться автоматично коли закінчиться таймер
+                            </p>
 
                             <div className="theme-grid" style={{
                                 display: 'grid',
@@ -1630,15 +1632,6 @@
                                     </button>
                                 ))}
                             </div>
-
-                            <button
-                                onClick={submitThemes}
-                                className="btn btn-primary"
-                                style={{ marginTop: '20px' }}
-                                disabled={selectedThemes.length === 0}
-                            >
-                                Підтвердити вибір
-                            </button>
                         </div>
                     </div>
                 );
