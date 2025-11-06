@@ -2286,50 +2286,51 @@
                                 <h2>{isGameEnd ? 'Гра завершена!' : `Результати раунду ${roomData?.currentRound}`}</h2>
                             </div>
 
-                            <div style={{ marginTop: '30px' }}>
-                                <h3>Розкриття ролей:</h3>
+                            {/* ВИПРАВЛЕНО: Компактніші відступи */}
+                            <div style={{ marginTop: '15px' }}>
+                                <h3 style={{ marginBottom: '8px' }}>Розкриття ролей:</h3>
                                 <div style={{
-                                    padding: '20px',
+                                    padding: '12px',
                                     background: '#fff3cd',
-                                    borderRadius: '10px',
-                                    marginTop: '15px'
+                                    borderRadius: '8px',
+                                    marginTop: '8px'
                                 }}>
-                                    <div style={{ fontSize: '20px', marginBottom: '10px' }}>
+                                    <div style={{ fontSize: '16px', marginBottom: '6px' }}>
                                         <strong>Категорія:</strong> {results.theme}
                                     </div>
-                                    <div style={{ fontSize: '20px', marginBottom: '10px' }}>
+                                    <div style={{ fontSize: '16px', marginBottom: '6px' }}>
                                         <strong>Загадане слово:</strong> {results.word}
                                     </div>
-                                    <div style={{ fontSize: '20px', color: '#FF5722' }}>
+                                    <div style={{ fontSize: '16px', color: '#FF5722' }}>
                                         <strong>Підробний художник:</strong> {roomData?.players?.find(p => p.id === results.fakeArtistId)?.name}
                                     </div>
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: '30px' }}>
-                                <h3>Що сталося:</h3>
+                            <div style={{ marginTop: '15px' }}>
+                                <h3 style={{ marginBottom: '8px' }}>Що сталося:</h3>
                                 <div style={{
-                                    padding: '15px',
+                                    padding: '10px',
                                     background: results.fakeWins ? '#ffebee' : '#e8f5e9',
-                                    borderRadius: '10px',
-                                    fontSize: '18px',
-                                    marginTop: '15px'
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    marginTop: '8px'
                                 }}>
                                     {!results.fakeIsCaught && (
-                                        <p>🎭 Підробного художника не впіймали! Він виграв!</p>
+                                        <p style={{ margin: 0 }}>🎭 Підробного художника не впіймали! Він виграв!</p>
                                     )}
                                     {results.fakeIsCaught && results.guessCorrect && (
-                                        <p>🎭 Підробного впіймали, але він правильно вгадав слово! Він виграв!</p>
+                                        <p style={{ margin: 0 }}>🎭 Підробного впіймали, але він правильно вгадав слово! Він виграв!</p>
                                     )}
                                     {results.fakeIsCaught && !results.guessCorrect && (
-                                        <p>✅ Підробного впіймали і він не вгадав слово! Художники перемогли!</p>
+                                        <p style={{ margin: 0 }}>✅ Підробного впіймали і він не вгадав слово! Художники перемогли!</p>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="scores-table" style={{ marginTop: '30px' }}>
-                                <h3>Рахунок:</h3>
-                                <table style={{ width: '100%', marginTop: '15px' }}>
+                            <div className="scores-table" style={{ marginTop: '15px' }}>
+                                <h3 style={{ marginBottom: '8px' }}>Рахунок:</h3>
+                                <table style={{ width: '100%', marginTop: '8px' }}>
                                     <thead>
                                         <tr>
                                             <th>Гравець</th>
@@ -2349,7 +2350,7 @@
                                                             {player?.name}
                                                             {pid === playerId && ' (Ви)'}
                                                         </td>
-                                                        <td style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                                        <td style={{ fontSize: '20px', fontWeight: 'bold', color: '#4CAF50' }}>
                                                             {score}
                                                         </td>
                                                         <td>
@@ -2362,10 +2363,11 @@
                                 </table>
                             </div>
 
-                            <div className="results-actions" style={{ marginTop: '30px' }}>
+                            {/* ВИПРАВЛЕНО: Компактніші відступи для кнопок */}
+                            <div className="results-actions" style={{ marginTop: '15px' }}>
                                 {isGameEnd ? (
                                     <div>
-                                        <h2 style={{ color: '#4CAF50', marginBottom: '20px' }}>
+                                        <h2 style={{ color: '#4CAF50', marginBottom: '12px', fontSize: '1.3em' }}>
                                             🏆 Переможець: {roomData?.players?.find(p => p.id === roomData?.winner)?.name}!
                                         </h2>
                                         {isHost && (
@@ -2384,7 +2386,7 @@
                                                 Наступний раунд
                                             </button>
                                         )}
-                                        {!isHost && <p>Очікування наступного раунду...</p>}
+                                        {!isHost && <p style={{ margin: '10px 0' }}>Очікування наступного раунду...</p>}
                                     </>
                                 )}
                             </div>
