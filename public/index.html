@@ -1314,6 +1314,26 @@
                     setRoundData(null);
                     setRoundResults(null);
                     setFinalResults(null);
+                    // ВИПРАВЛЕНО: Очищаємо весь state Unicorn Canvas
+                    setAvailableThemes([]);
+                    setSelectedThemes([]);
+                    setPlayerCard(null);
+                    setCurrentTheme(null);
+                    setSharedDrawing([]);
+                    setTurnOrder([]);
+                    setCurrentTurnIndex(0);
+                    setCurrentDrawingRound(1);
+                    setUnicornRoundResults(null);
+                    setFakeArtistGuess('');
+                    setMyVoteForFake(null);
+                    setFakeGuessInput('');
+                    setMyVoteForAnswer(null);
+                    setIsDrawing(false);
+                    setCurrentStroke([]);
+                    // Очищаємо буфер штрихів
+                    if (strokeBufferRef.current) {
+                        strokeBufferRef.current = [];
+                    }
                 });
                 
                 newSocket.on('error', ({ message }) => {
