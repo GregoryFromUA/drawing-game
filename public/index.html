@@ -1715,11 +1715,11 @@
                                     <div className="players-list">
                                         <h3>Гравці ({roomData?.players?.length || 0}/12):</h3>
                                         {roomData?.players?.map(player => (
-                                            <div 
+                                            <div
                                                 key={player.id}
                                                 className={`player-item ${player.ready ? 'ready' : ''} ${!player.connected ? 'disconnected' : ''}`}
                                             >
-                                                <span className="player-name">
+                                                <span className="player-name" style={{ color: player.color || '#000', fontWeight: 'bold' }}>
                                                     {player.name}
                                                     {player.id === playerId && ' (Ви)'}
                                                     {player.id === roomData.hostId && ' 👑'}
@@ -1817,7 +1817,7 @@
             }
 
             // UNICORN CANVAS: Фаза малювання (та додаткові фази з канвасом)
-            if (gameState === 'unicorn_drawing' || gameState === 'voting_fake' || gameState === 'fake_guessing') {
+            if (gameState === 'unicorn_drawing' || gameState === 'voting_fake' || gameState === 'fake_guessing' || gameState === 'voting_answer') {
                 const currentPlayerId = turnOrder[currentTurnIndex];
                 const isMyTurn = currentPlayerId === playerId;
                 const currentPlayer = roomData?.players?.find(p => p.id === currentPlayerId);
@@ -1953,7 +1953,6 @@
                                                 padding: '8px',
                                                 marginTop: '5px',
                                                 background: isCurrent ? '#4CAF50' : (isDone ? '#e0e0e0' : 'white'),
-                                                color: isCurrent ? 'white' : 'black',
                                                 borderRadius: '5px',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -1965,7 +1964,10 @@
                                                     borderRadius: '50%',
                                                     background: player?.color || '#ccc'
                                                 }}></div>
-                                                <span style={{ fontWeight: isCurrent ? 'bold' : 'normal' }}>
+                                                <span style={{
+                                                    fontWeight: isCurrent ? 'bold' : 'normal',
+                                                    color: isCurrent ? 'white' : (player?.color || '#000')
+                                                }}>
                                                     {player?.name || 'Гравець'}
                                                     {pid === playerId && ' (Ви)'}
                                                     {isCurrent && ' 🎨'}
@@ -1977,7 +1979,13 @@
                                 </div>
 
                                 <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                                    <h3>{isMyTurn ? 'Ваш хід!' : `Малює: ${currentPlayer?.name}`}</h3>
+                                    <h3>
+                                        {isMyTurn ? 'Ваш хід!' : (
+                                            <>
+                                                Малює: <span style={{ color: currentPlayer?.color || '#000' }}>{currentPlayer?.name}</span>
+                                            </>
+                                        )}
+                                    </h3>
                                     <div style={{ fontSize: '24px', color: drawingTimeLeft <= 10 ? '#ff0000' : '#666' }}>
                                         ⏱️ {drawingTimeLeft} сек.
                                     </div>
@@ -2034,7 +2042,7 @@
                                             width: '10px',
                                             height: '10px',
                                             borderRadius: '50%',
-                                            backgroundColor: '#000000',
+                                            backgroundColor: roomData?.players?.find(p => p.id === playerId)?.color || '#000000',
                                             pointerEvents: 'none',
                                             zIndex: 9999,
                                             transform: 'translate(-50%, -50%)',
@@ -2061,7 +2069,7 @@
                                             background: 'white',
                                             borderRadius: '5px'
                                         }}>
-                                            <div style={{ fontWeight: 'bold' }}>
+                                            <div style={{ fontWeight: 'bold', color: player.color || '#000' }}>
                                                 {player.name}
                                                 {player.id === playerId && ' (Ви)'}
                                             </div>
@@ -2119,7 +2127,7 @@
                                                 borderRadius: '50%',
                                                 background: player.color || '#ccc'
                                             }}></div>
-                                            <span style={{ fontSize: '13px' }}>
+                                            <span style={{ fontSize: '13px', color: player.color || '#000', fontWeight: 'bold' }}>
                                                 {player.name}
                                                 {player.id === playerId && ' (Ви)'}
                                             </span>
@@ -2207,6 +2215,85 @@
                                 </div>
                             );
                         })()}
+
+                        {/* МОДАЛЬНА СЕКЦІЯ: Голосування за правильність відповіді */}
+                        {gameState === 'voting_answer' && (() => {
+                            const isFakeArtist = playerCard?.isFake;
+
+                            return (
+                                <div className="modal-section" style={{ maxWidth: '700px', margin: '20px auto' }}>
+                                    <h2 style={{ fontSize: '22px', marginBottom: '10px', textAlign: 'center' }}>
+                                        Чи правильна відповідь? 🤔
+                                    </h2>
+
+                                    <div style={{
+                                        fontSize: '16px',
+                                        marginTop: '15px',
+                                        padding: '12px',
+                                        background: '#f9f9f9',
+                                        borderRadius: '8px',
+                                        marginBottom: '15px'
+                                    }}>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <strong>Категорія:</strong> {currentTheme}
+                                        </div>
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <strong>Правильне слово:</strong> <span style={{ fontSize: '20px', color: '#4CAF50', fontWeight: 'bold' }}>{roomData?.currentWord || '...'}</span>
+                                        </div>
+                                        <div>
+                                            <strong>Відповідь підробного:</strong> <span style={{ fontSize: '20px', color: '#FF5722', fontWeight: 'bold' }}>{fakeArtistGuess}</span>
+                                        </div>
+                                    </div>
+
+                                    {!isFakeArtist ? (
+                                        <>
+                                            <p style={{ fontSize: '14px', marginBottom: '15px', textAlign: 'center' }}>
+                                                Проголосуйте: чи правильно вгадав підробний художник?
+                                            </p>
+
+                                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        setMyVoteForAnswer(true);
+                                                        if (socket) {
+                                                            socket.emit('vote_answer_correctness', { isCorrect: true });
+                                                        }
+                                                    }}
+                                                    className={`btn ${myVoteForAnswer === true ? 'btn-success' : 'btn-secondary'}`}
+                                                    disabled={myVoteForAnswer !== null}
+                                                    style={{ padding: '12px 30px', fontSize: '16px' }}
+                                                >
+                                                    ✓ Правильно
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setMyVoteForAnswer(false);
+                                                        if (socket) {
+                                                            socket.emit('vote_answer_correctness', { isCorrect: false });
+                                                        }
+                                                    }}
+                                                    className={`btn ${myVoteForAnswer === false ? 'btn-danger' : 'btn-secondary'}`}
+                                                    disabled={myVoteForAnswer !== null}
+                                                    style={{ padding: '12px 30px', fontSize: '16px' }}
+                                                >
+                                                    ✗ Неправильно
+                                                </button>
+                                            </div>
+
+                                            {myVoteForAnswer !== null && (
+                                                <div style={{ textAlign: 'center', marginTop: '12px', color: '#4CAF50', fontSize: '14px' }}>
+                                                    ✓ Ваш голос збережено
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div style={{ fontSize: '16px', color: '#666', textAlign: 'center' }}>
+                                            Інші гравці голосують...
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 );
             }
@@ -2227,83 +2314,6 @@
                         isHost={isHost}
                         endRound={endRound}
                     />
-                );
-            }
-
-            // UNICORN CANVAS: Голосування за правильність відповіді
-            if (gameState === 'voting_answer') {
-                const handleVote = (isCorrect) => {
-                    setMyVoteForAnswer(isCorrect);
-                    if (socket) {
-                        socket.emit('vote_answer_correctness', { isCorrect });
-                    }
-                };
-
-                const isFakeArtist = playerCard?.isFake;
-
-                return (
-                    <div className="lobby-container">
-                        <div className="lobby">
-                            <h1>Чи правильна відповідь?</h1>
-
-                            <div style={{
-                                fontSize: '20px',
-                                marginTop: '30px',
-                                padding: '20px',
-                                background: '#f0f0f0',
-                                borderRadius: '10px',
-                                maxWidth: '600px',
-                                margin: '30px auto'
-                            }}>
-                                <div style={{ marginBottom: '15px' }}>
-                                    <strong>Категорія:</strong> {currentTheme}
-                                </div>
-                                <div style={{ marginBottom: '15px' }}>
-                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '28px', color: '#4CAF50' }}>{roomData?.currentWord || 'завантаження...'}</span>
-                                </div>
-                                <div>
-                                    <strong>Відповідь підробного:</strong> <span style={{ fontSize: '28px', color: '#FF5722' }}>{fakeArtistGuess}</span>
-                                </div>
-                            </div>
-
-                            {!isFakeArtist ? (
-                                <>
-                                    <p style={{ fontSize: '18px', marginBottom: '30px' }}>
-                                        Проголосуйте: чи правильно вгадав підробний художник?
-                                    </p>
-
-                                    <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-                                        <button
-                                            onClick={() => handleVote(true)}
-                                            className={`btn ${myVoteForAnswer === true ? 'btn-success' : 'btn-secondary'}`}
-                                            disabled={myVoteForAnswer !== null}
-                                            style={{ padding: '20px 50px', fontSize: '20px' }}
-                                        >
-                                            ✓ Правильно
-                                        </button>
-                                        <button
-                                            onClick={() => handleVote(false)}
-                                            className={`btn ${myVoteForAnswer === false ? 'btn-danger' : 'btn-secondary'}`}
-                                            disabled={myVoteForAnswer !== null}
-                                            style={{ padding: '20px 50px', fontSize: '20px' }}
-                                        >
-                                            ✗ Неправильно
-                                        </button>
-                                    </div>
-
-                                    {myVoteForAnswer !== null && (
-                                        <div style={{ textAlign: 'center', marginTop: '20px', color: '#4CAF50', fontSize: '18px' }}>
-                                            ✓ Ваш голос збережено
-                                        </div>
-                                    )}
-                                </>
-                            ) : (
-                                <div style={{ fontSize: '18px', color: '#666' }}>
-                                    Інші гравці голосують...
-                                </div>
-                            )}
-                        </div>
-                    </div>
                 );
             }
 
