@@ -887,10 +887,10 @@ class FakeArtistGame {
     this.state = 'voting_fake';
     this.votesForFake.clear();
 
-    // Таймер 10 секунд
+    // Таймер 30 секунд
     this.votingTimer = setTimeout(() => {
       this.finishVotingForFake();
-    }, 10000);
+    }, 30000);
 
     // Відправляємо подію про початок голосування
     this.io.to(this.code).emit('voting_for_fake_started', {

@@ -1191,7 +1191,7 @@
 
             // ВИПРАВЛЕНО: Динамічні таймери для різних фаз
             const [drawingTimeLeft, setDrawingTimeLeft] = useState(60); // Таймер рисування
-            const [votingTimeLeft, setVotingTimeLeft] = useState(10); // Таймер голосування
+            const [votingTimeLeft, setVotingTimeLeft] = useState(30); // Таймер голосування
             const [guessingTimeLeft, setGuessingTimeLeft] = useState(60); // Таймер відгадування
 
             // Canvas refs and state для малювання
@@ -1475,7 +1475,7 @@
             // ВИПРАВЛЕНО: Таймер голосування
             useEffect(() => {
                 if (gameState === 'voting_fake') {
-                    setVotingTimeLeft(10); // Скидаємо при вході в фазу
+                    setVotingTimeLeft(30); // Скидаємо при вході в фазу
                     const timer = setInterval(() => {
                         setVotingTimeLeft(prev => {
                             if (prev <= 0) return 0;
