@@ -588,6 +588,7 @@ class FakeArtistGame {
     this.votesForCorrectness.clear();
     this.scores.clear();
     this.readyPlayers.clear();
+    if (this.playerDisplayedThemes) this.playerDisplayedThemes.clear();
 
     // Очищаємо масиви
     this.sharedDrawing = [];
@@ -663,10 +664,15 @@ class FakeArtistGame {
     this.state = 'theme_selection';
     this.playerThemeVotes.clear();
 
-    // Вибираємо 10 випадкових тем для показу гравцям
+    // ВИПРАВЛЕНО: Кожен гравець отримує свій унікальний набір з 10 тем
     const allThemes = Object.keys(FAKE_ARTIST_THEMES);
-    const shuffled = [...allThemes].sort(() => Math.random() - 0.5);
-    this.displayedThemes = shuffled.slice(0, 10);
+    this.playerDisplayedThemes = new Map();
+
+    for (let [playerId] of this.players) {
+      // Перемішуємо теми для кожного гравця окремо
+      const shuffled = [...allThemes].sort(() => Math.random() - 0.5);
+      this.playerDisplayedThemes.set(playerId, shuffled.slice(0, 10));
+    }
 
     // Таймер 30 секунд
     this.themeSelectionTimer = setTimeout(() => {
@@ -700,9 +706,15 @@ class FakeArtistGame {
 
     this.selectedThemesPool = Array.from(allVotedThemes);
 
-    // Якщо менше 5 тем, додаємо випадкові з показаних 10 тем
+    // ВИПРАВЛЕНО: Якщо менше 5 тем, додаємо випадкові з об'єднання всіх показаних тем
     if (this.selectedThemesPool.length < 5) {
-      const remainingThemes = this.displayedThemes.filter(t => !this.selectedThemesPool.includes(t));
+      // Збираємо всі унікальні теми, які були показані хоча б одному гравцю
+      const allDisplayedThemes = new Set();
+      for (let playerThemes of this.playerDisplayedThemes.values()) {
+        playerThemes.forEach(theme => allDisplayedThemes.add(theme));
+      }
+
+      const remainingThemes = Array.from(allDisplayedThemes).filter(t => !this.selectedThemesPool.includes(t));
       while (this.selectedThemesPool.length < 5 && remainingThemes.length > 0) {
         const randomIndex = Math.floor(Math.random() * remainingThemes.length);
         this.selectedThemesPool.push(remainingThemes[randomIndex]);
@@ -1247,10 +1259,14 @@ io.on('connection', (socket) => {
       // Починаємо вибір тем
       room.startThemeSelection();
 
-      io.to(currentRoomCode).emit('theme_selection_started', {
-        availableThemes: room.displayedThemes,
-        state: room.getState()
-      });
+      // ВИПРАВЛЕНО: Відправляємо кожному гравцю його персональний набір тем
+      for (let [playerId, player] of room.players) {
+        const playerThemes = room.playerDisplayedThemes.get(playerId);
+        io.to(player.socketId).emit('theme_selection_started', {
+          availableThemes: playerThemes,
+          state: room.getState()
+        });
+      }
       return;
     }
 
@@ -1328,10 +1344,14 @@ io.on('connection', (socket) => {
     // Починаємо вибір тем
     newRoom.startThemeSelection();
 
-    io.to(roomCode).emit('theme_selection_started', {
-      availableThemes: newRoom.displayedThemes,
-      state: newRoom.getState()
-    });
+    // ВИПРАВЛЕНО: Відправляємо кожному гравцю його персональний набір тем
+    for (let [playerId, player] of newRoom.players) {
+      const playerThemes = newRoom.playerDisplayedThemes.get(playerId);
+      io.to(player.socketId).emit('theme_selection_started', {
+        availableThemes: playerThemes,
+        state: newRoom.getState()
+      });
+    }
 
     console.log(`Room ${roomCode} converted to Unicorn Canvas mode`);
   });
@@ -1469,18 +1489,34 @@ io.on('connection', (socket) => {
   socket.on('new_game', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || currentPlayerId !== room.hostId) return;
-    
-    room.currentRound = 0;
-    room.scores.clear();
-    room.state = 'lobby';
-    room.readyPlayers.clear();
-    room.usedWordSetIndices = []; // Скидаємо використані набори
-    
-    for (let [playerId] of room.players) {
-      room.scores.set(playerId, 0);
-      room.setPlayerReady(playerId, false);
+
+    // ВИПРАВЛЕНО: Підтримка обох режимів гри
+    if (room.mode === 'unicorn_canvas') {
+      // Для Unicorn Canvas (FakeArtistGame)
+      room.currentRound = 0;
+      room.scores.clear();
+      room.state = 'lobby';
+      room.readyPlayers.clear();
+      room.usedThemes = []; // Скидаємо використані теми
+      room.selectedThemesPool = [];
+
+      for (let [playerId] of room.players) {
+        room.scores.set(playerId, 0);
+      }
+    } else {
+      // Для Doodle Prophet (GameRoom)
+      room.currentRound = 0;
+      room.scores.clear();
+      room.state = 'lobby';
+      room.readyPlayers.clear();
+      room.usedWordSetIndices = []; // Скидаємо використані набори
+
+      for (let [playerId] of room.players) {
+        room.scores.set(playerId, 0);
+        room.setPlayerReady(playerId, false);
+      }
     }
-    
+
     io.to(currentRoomCode).emit('game_reset', room.getState());
   });
 

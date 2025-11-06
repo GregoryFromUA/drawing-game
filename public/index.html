@@ -504,6 +504,13 @@
             font-size: 1.4em;
             font-weight: bold;
             color: #333;
+            line-height: 1.3;
+            word-wrap: break-word;
+        }
+
+        /* Адаптивний шрифт для довгих слів */
+        .task-word:has(+ *) {
+            font-size: 1.2em;
         }
         
         .my-canvas-wrapper {
@@ -1655,7 +1662,7 @@
                     <div className="lobby-container">
                         <div className="lobby">
                             <h1>Оберіть 5 тем для гри</h1>
-                            <p>Таймер: {themeSelectionTimeLeft} {themeSelectionTimeLeft === 1 ? 'секунда' : themeSelectionTimeLeft < 5 ? 'секунди' : 'секунд'}</p>
+                            <p>Таймер: {themeSelectionTimeLeft} сек.</p>
                             <p>Обрано: {selectedThemes.length}/5</p>
                             <p style={{color: '#999', fontSize: '14px', marginTop: '5px'}}>
                                 Теми відправляться автоматично коли закінчиться таймер
@@ -1756,13 +1763,22 @@
                                         <strong>Категорія:</strong> {currentTheme}
                                     </div>
                                     <div style={{
-                                        fontSize: '32px',
+                                        fontSize: (() => {
+                                            const word = playerCard?.word || '';
+                                            const length = word.length;
+                                            const wordCount = word.split(' ').length;
+                                            // Адаптивний розмір шрифту залежно від довжини
+                                            if (wordCount > 1 || length > 15) return '20px';
+                                            if (length > 10) return '26px';
+                                            return '32px';
+                                        })(),
                                         fontWeight: 'bold',
                                         marginTop: '15px',
                                         padding: '20px',
                                         background: playerCard?.isFake ? '#ffcccc' : '#ccffcc',
                                         borderRadius: '5px',
-                                        textAlign: 'center'
+                                        textAlign: 'center',
+                                        lineHeight: '1.3'
                                     }}>
                                         {playerCard?.word}
                                     </div>
@@ -2935,7 +2951,17 @@
                                     {/* Завдання */}
                                     {myAssignment && (
                                         <div className="task-header">
-                                            <div className="task-word">{myAssignment.word}</div>
+                                            <div className="task-word" style={{
+                                                fontSize: (() => {
+                                                    const word = myAssignment.word || '';
+                                                    const length = word.length;
+                                                    const wordCount = word.split(' ').length;
+                                                    // Адаптивний розмір шрифту
+                                                    if (wordCount > 1 || length > 15) return '1.1em';
+                                                    if (length > 10) return '1.2em';
+                                                    return '1.4em';
+                                                })()
+                                            }}>{myAssignment.word}</div>
                                         </div>
                                     )}
                                     
