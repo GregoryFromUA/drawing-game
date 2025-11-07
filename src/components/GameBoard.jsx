@@ -64,6 +64,7 @@ function GameBoard({
 
         const sendStrokes = () => {
             if (strokeBufferRef.current.length > 0 && socket) {
+                console.log('📤 GameBoard sending strokes:', strokeBufferRef.current.length, strokeBufferRef.current.slice(0, 3));
                 socket.emit('drawing_update', {
                     strokes: strokeBufferRef.current
                 });
@@ -244,6 +245,7 @@ function GameBoard({
             type: 'start'
         };
 
+        console.log('➕ Adding START stroke to buffer:', strokeData);
         strokeBufferRef.current.push(strokeData);
     };
     
@@ -291,6 +293,7 @@ function GameBoard({
             type: 'draw'
         };
 
+        console.log('➕ Adding DRAW stroke to buffer:', strokeData);
         strokeBufferRef.current.push(strokeData);
     }, [isDrawing, isDrawingLocked, currentColor, currentSize, currentTool]);
     
@@ -303,6 +306,7 @@ function GameBoard({
             const strokeData = {
                 type: 'end'
             };
+            console.log('➕ Adding END stroke to buffer:', strokeData);
             strokeBufferRef.current.push(strokeData);
         }
     };
