@@ -2902,8 +2902,9 @@
             const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
             const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
 
-            // НОВЕ: Таймер раунду
-            const [roundTimer, setRoundTimer] = useState(120); // Початкове значення 120 секунд
+            // НОВЕ: Таймер раунду (синхронізований з сервером)
+            const [roundStartTime, setRoundStartTime] = useState(null); // Час початку раунду з сервера
+            const [roundTimer, setRoundTimer] = useState(120); // Поточне значення таймера
 
             // Custom cursor refs (для производительности - без ререндеров)
             const customCursorRef = useRef(null);
@@ -2946,23 +2947,34 @@
                 };
             }, [socket]);
 
-            // НОВЕ: Countdown таймер раунду
+            // НОВЕ: Синхронізація roundStartTime з сервером
             useEffect(() => {
-                // Скидаємо таймер при зміні раунду
-                setRoundTimer(120);
-            }, [roundData?.round]);
-
-            useEffect(() => {
-                // Запускаємо countdown
-                if (roundTimer > 0) {
-                    const timerId = setTimeout(() => {
-                        setRoundTimer(prev => prev - 1);
-                    }, 1000);
-
-                    return () => clearTimeout(timerId);
+                if (roundData?.roundStartTime) {
+                    setRoundStartTime(roundData.roundStartTime);
                 }
-                // Коли таймер досягає 0, він просто зупиняється
-            }, [roundTimer]);
+            }, [roundData?.roundStartTime]);
+
+            // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
+            useEffect(() => {
+                if (!roundStartTime) {
+                    setRoundTimer(120);
+                    return;
+                }
+
+                const updateTimer = () => {
+                    const elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
+                    const remaining = Math.max(0, 120 - elapsed);
+                    setRoundTimer(remaining);
+                };
+
+                // Одразу оновлюємо таймер
+                updateTimer();
+
+                // Оновлюємо кожну секунду
+                const intervalId = setInterval(updateTimer, 1000);
+
+                return () => clearInterval(intervalId);
+            }, [roundStartTime]);
 
             // Оптимізоване оновлення cursor через пряме DOM маніпулювання
             const updateCustomCursor = useCallback((x, y) => {

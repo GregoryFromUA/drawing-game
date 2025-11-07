@@ -289,7 +289,8 @@ class GameRoom {
       this.roundData = {
         wordSet,
         assignments,
-        playerScoreSequences: new Map() // Персональні черги очок для кожного художника
+        playerScoreSequences: new Map(), // Персональні черги очок для кожного художника
+        roundStartTime: Date.now() // НОВЕ: Час початку раунду для синхронізації таймера
       };
       
       // Ініціалізуємо черги очок
@@ -307,11 +308,12 @@ class GameRoom {
       console.log(`- Guess sequence length: ${guessSequenceLength}`);
       
       this.state = 'playing';
-      
+
       return {
         round: this.currentRound,
         wordSet,
-        assignments
+        assignments,
+        roundStartTime: this.roundData.roundStartTime // НОВЕ: Відправляємо час старту для синхронізації
       };
     } finally {
       // НОВЕ: Завжди знімаємо блокування
