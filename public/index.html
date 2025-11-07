@@ -1299,8 +1299,6 @@
                 });
                 
                 newSocket.on('round_started', (data) => {
-                    console.log('📢 round_started event received:', data);
-                    console.log('📢 roundStartTime in data:', data?.roundStartTime);
                     setRoundData(data);
                     setGameState('playing');
                     setDrawings({});
@@ -2998,29 +2996,21 @@
 
             // НОВЕ: Синхронізація roundStartTime з сервером
             useEffect(() => {
-                console.log('⏰ roundData changed:', roundData);
-                console.log('⏰ roundData?.roundStartTime:', roundData?.roundStartTime);
                 if (roundData?.roundStartTime) {
-                    console.log('✅ Setting roundStartTime:', roundData.roundStartTime);
                     setRoundStartTime(roundData.roundStartTime);
-                } else {
-                    console.log('❌ No roundStartTime in roundData');
                 }
             }, [roundData]);
 
             // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
             useEffect(() => {
                 if (!roundStartTime) {
-                    console.log('Timer: no roundStartTime, setting to 120');
                     setRoundTimer(120);
                     return;
                 }
 
-                console.log('Timer: starting countdown with roundStartTime:', roundStartTime);
                 const updateTimer = () => {
                     const elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
                     const remaining = Math.max(0, 120 - elapsed);
-                    console.log('Timer update - elapsed:', elapsed, 'remaining:', remaining);
                     setRoundTimer(remaining);
                 };
 
@@ -3030,10 +3020,7 @@
                 // Оновлюємо кожну секунду
                 const intervalId = setInterval(updateTimer, 1000);
 
-                return () => {
-                    console.log('Timer: cleanup');
-                    clearInterval(intervalId);
-                };
+                return () => clearInterval(intervalId);
             }, [roundStartTime]);
 
             // Оптимізоване оновлення cursor через пряме DOM маніпулювання
