@@ -18,7 +18,8 @@ const io = socketIO(server, {
 });
 
 app.use(cors());
-app.use(express.static('public'));
+// Використовуємо dist директорію замість public (Vite build output)
+app.use(express.static('dist'));
 
 // Константи гри
 const ROUNDS_PER_GAME = 4;

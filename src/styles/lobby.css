@@ -1,0 +1,250 @@
+/* Lobby styles */
+.lobby-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.lobby {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 900px;
+    width: 100%;
+}
+
+.lobby h1 {
+    text-align: center;
+    color: #667eea;
+    margin-bottom: 25px;
+    font-size: 2em;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.lobby-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.lobby-left, .lobby-right {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.room-code {
+    background: #f0f0f0;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.room-code h2 {
+    color: #667eea;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+
+.room-code .code {
+    font-size: 1.8em;
+    font-weight: bold;
+    letter-spacing: 5px;
+    color: #333;
+}
+
+.clickable-code {
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    user-select: all;
+    padding: 8px;
+    border-radius: 10px;
+}
+
+.clickable-code:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.clickable-code:active {
+    transform: scale(0.98);
+}
+
+.copy-success {
+    position: absolute;
+    right: -120px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #4caf50;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    animation: fadeInOut 2s ease;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.code-hint {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 5px;
+    text-align: center;
+    font-style: italic;
+}
+
+.rules-section {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 2px solid #ff9800;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.rules-section h3 {
+    color: #e65100;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    text-align: center;
+}
+
+.rules-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.rules-section li {
+    padding: 5px 0;
+    padding-left: 20px;
+    position: relative;
+    line-height: 1.4;
+    font-size: 0.9em;
+}
+
+.rules-section li::before {
+    content: "⚠️";
+    position: absolute;
+    left: 0;
+}
+
+.players-list {
+    background: #f8f8f8;
+    border-radius: 10px;
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.players-list h3 {
+    margin-bottom: 10px;
+    color: #667eea;
+}
+
+.player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    margin: 8px 0;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.player-item.ready {
+    background: #d4f4dd;
+    border: 2px solid #4caf50;
+}
+
+.player-item.disconnected {
+    opacity: 0.5;
+    background: #ffebee;
+}
+
+.player-name {
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.player-status {
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+}
+
+.player-status.ready {
+    background: #4caf50;
+    color: white;
+}
+
+.player-status.waiting {
+    background: #ff9800;
+    color: white;
+}
+
+.player-status.disconnected {
+    background: #f44336;
+    color: white;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group label {
+    font-weight: 600;
+    color: #667eea;
+    font-size: 0.9em;
+}
+
+.input-group input, .input-group select {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.input-group input:focus, .input-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.error {
+    color: #f44336;
+    font-size: 0.9em;
+    text-align: center;
+    padding: 10px;
+    background: #ffebee;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.success {
+    color: #4caf50;
+    font-size: 0.9em;
+    text-align: center;
+    padding: 10px;
+    background: #e8f5e9;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+    .lobby-content {
+        grid-template-columns: 1fr;
+    }
+
+    .lobby h1 {
+        font-size: 1.5em;
+    }
+}
