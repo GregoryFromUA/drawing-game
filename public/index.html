@@ -1299,6 +1299,8 @@
                 });
                 
                 newSocket.on('round_started', (data) => {
+                    console.log('📢 round_started event received:', data);
+                    console.log('📢 roundStartTime in data:', data?.roundStartTime);
                     setRoundData(data);
                     setGameState('playing');
                     setDrawings({});
@@ -2996,9 +2998,13 @@
 
             // НОВЕ: Синхронізація roundStartTime з сервером
             useEffect(() => {
+                console.log('⏰ roundData changed:', roundData);
+                console.log('⏰ roundData?.roundStartTime:', roundData?.roundStartTime);
                 if (roundData?.roundStartTime) {
-                    console.log('Setting roundStartTime:', roundData.roundStartTime);
+                    console.log('✅ Setting roundStartTime:', roundData.roundStartTime);
                     setRoundStartTime(roundData.roundStartTime);
+                } else {
+                    console.log('❌ No roundStartTime in roundData');
                 }
             }, [roundData]);
 

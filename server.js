@@ -1342,7 +1342,8 @@ io.on('connection', (socket) => {
           round: roundData.round,
           wordSet: roundData.wordSet,
           personalAssignment: assignment,
-          players: Array.from(room.players.values())
+          players: Array.from(room.players.values()),
+          roundStartTime: roundData.roundStartTime
         });
       }
 
@@ -1576,7 +1577,8 @@ io.on('connection', (socket) => {
         round: roundData.round,
         wordSet: roundData.wordSet,
         personalAssignment: assignment,
-        players: Array.from(room.players.values())
+        players: Array.from(room.players.values()),
+        roundStartTime: roundData.roundStartTime
       });
     }
   });
