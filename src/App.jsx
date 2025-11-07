@@ -164,6 +164,7 @@ function App() {
         });
         
         newSocket.on('drawing_updated', ({ playerId, strokes }) => {
+            console.log('🎨 drawing_updated received:', { playerId, strokesCount: strokes.length });
             setDrawings(prev => ({
                 ...prev,
                 [playerId]: [...(prev[playerId] || []), ...strokes]
@@ -426,6 +427,7 @@ function App() {
         });
         
         newSocket.on('drawing_updated', ({ playerId, strokes }) => {
+            console.log('🎨 drawing_updated received:', { playerId, strokesCount: strokes.length });
             setDrawings(prev => ({
                 ...prev,
                 [playerId]: [...(prev[playerId] || []), ...strokes]
