@@ -50,11 +50,11 @@ class GameRoom {
     this.scores = new Map();
     this.readyPlayers = new Set();
     this.finishedGuessing = new Set();
-    this.blackTokensGiven = [];
     this.drawingLocks = new Map(); // Блокування малюнків
     this.usedWordSetIndices = []; // Зберігаємо індекси використаних наборів для уникнення повторів
     this.isStartingRound = false; // НОВЕ: Захист від race condition
     this.drawingRateLimit = new Map(); // НОВЕ: Rate limiting для малювання
+    this.answersRevealed = false; // НОВЕ: Флаг показу правильних відповідей
   }
 
   // НОВЕ: Метод очищення пам'яті
@@ -68,10 +68,7 @@ class GameRoom {
     this.finishedGuessing.clear();
     this.drawingLocks.clear();
     this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
-    
-    // Очищаємо масиви
-    this.blackTokensGiven = [];
-    
+
     // Обмежуємо usedWordSetIndices максимум 100 записами (достатньо для 25 ігор)
     if (this.usedWordSetIndices.length > 100) {
       // Залишаємо тільки останні 50 записів
@@ -167,9 +164,9 @@ class GameRoom {
       this.finishedGuessing.clear();
       this.drawings.clear();
       this.guesses.clear();
-      this.blackTokensGiven = [];
       this.drawingLocks.clear();
       this.drawingRateLimit.clear(); // ВИПРАВЛЕНО: очищаємо rate limits
+      this.answersRevealed = false; // НОВЕ: Скидаємо показ правильних відповідей
       
       // ВИПРАВЛЕНО: Видаляємо відключених гравців перед новим раундом
       const disconnectedPlayers = [];
@@ -293,7 +290,7 @@ class GameRoom {
         wordSet,
         assignments,
         playerScoreSequences: new Map(), // Персональні черги очок для кожного художника
-        blackTokenSequence: [] // Чорні жетони
+        roundStartTime: Date.now() // НОВЕ: Час початку раунду для синхронізації таймера
       };
       
       // Ініціалізуємо черги очок
@@ -301,26 +298,22 @@ class GameRoom {
       const guessSequenceLength = Math.min(this.players.size - 1, SCORE_SEQUENCE.length);
       for (let [playerId] of this.players) {
         this.roundData.playerScoreSequences.set(
-          playerId, 
+          playerId,
           [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
         );
       }
-      
-      // ВИПРАВЛЕННЯ: Для чорних жетонів: кількість = players.size (всі можуть завершити)
-      const blackTokenSequenceLength = Math.min(this.players.size, SCORE_SEQUENCE.length);
-      this.roundData.blackTokenSequence = [...SCORE_SEQUENCE.slice(0, blackTokenSequenceLength)];
-      
+
       console.log(`Round ${this.currentRound} initialized:`);
       console.log(`- Players: ${this.players.size}`);
       console.log(`- Guess sequence length: ${guessSequenceLength}`);
-      console.log(`- Black token sequence: [${this.roundData.blackTokenSequence.join(', ')}]`);
       
       this.state = 'playing';
-      
+
       return {
         round: this.currentRound,
         wordSet,
-        assignments
+        assignments,
+        roundStartTime: this.roundData.roundStartTime // НОВЕ: Відправляємо час старту для синхронізації
       };
     } finally {
       // НОВЕ: Завжди знімаємо блокування
@@ -368,7 +361,7 @@ class GameRoom {
     }
   }
 
-  makeGuess(guesserId, targetId, number) {
+  makeGuess(guesserId, targetId, number, letter) {
     // Перевіряємо чи не себе відгадує
     if (guesserId === targetId) return false;
 
@@ -380,9 +373,11 @@ class GameRoom {
     const guesserGuesses = this.guesses.get(guesserId);
     if (guesserGuesses.has(targetId)) return false;
 
-    // Перевіряємо чи не використаний вже цей номер
-    const usedNumbers = new Set(Array.from(guesserGuesses.values()).map(g => g.number));
-    if (usedNumbers.has(number)) return false;
+    // Перевіряємо чи не використана вже ця комбінація (letter + number)
+    const usedCombinations = new Set(
+      Array.from(guesserGuesses.values()).map(g => `${g.letter}${g.number}`)
+    );
+    if (usedCombinations.has(`${letter}${number}`)) return false;
 
     // DEBUG: Виводимо повну інформацію про здогадку
     const targetAssignment = this.roundData.assignments.get(targetId);
@@ -391,10 +386,10 @@ class GameRoom {
     console.log(`\n🔍 GUESS DEBUG:`);
     console.log(`  Guesser: ${guesserId} (has: ${guesserAssignment?.letter}${guesserAssignment?.number} "${guesserAssignment?.word}")`);
     console.log(`  Target: ${targetId} (has: ${targetAssignment?.letter}${targetAssignment?.number} "${targetAssignment?.word}")`);
-    console.log(`  Guessed number: ${number} (type: ${typeof number})`);
-    console.log(`  Target number: ${targetAssignment?.number} (type: ${typeof targetAssignment?.number})`);
-    console.log(`  Comparison: ${number} === ${targetAssignment?.number} = ${number === targetAssignment?.number}`);
-    console.log(`  Loose comparison: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
+    console.log(`  Guessed: ${letter}${number} (letter type: ${typeof letter}, number type: ${typeof number})`);
+    console.log(`  Target: ${targetAssignment?.letter}${targetAssignment?.number} (letter type: ${typeof targetAssignment?.letter}, number type: ${typeof targetAssignment?.number})`);
+    console.log(`  Letter match: ${letter} === ${targetAssignment?.letter} = ${letter === targetAssignment?.letter}`);
+    console.log(`  Number match: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
 
     // Выводим ВСЕ assignments для контекста
     console.log(`\n  📋 ALL ASSIGNMENTS IN THIS ROUND:`);
@@ -403,13 +398,16 @@ class GameRoom {
       console.log(`    ${marker} ${pid}: ${assignment.letter}${assignment.number} "${assignment.word}"`);
     }
 
-    // Перевіряємо правильність - ВИКОРИСТОВУЄМО LOOSE COMPARISON на випадок string vs number
-    const correct = targetAssignment && (number == targetAssignment.number);
+    // ВИПРАВЛЕНО: Перевіряємо правильність - порівнюємо І БУКВУ, І НОМЕР
+    const correct = targetAssignment &&
+                   (letter === targetAssignment.letter) &&
+                   (number == targetAssignment.number);
 
     console.log(`  RESULT: ${correct ? '✅ CORRECT' : '❌ INCORRECT'}\n`);
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
+      letter,
       number,
       time: Date.now(),
       correct
@@ -428,17 +426,7 @@ class GameRoom {
 
   finishGuessing(playerId) {
     this.finishedGuessing.add(playerId);
-    
-    // Видаємо чорний жетон
-    if (this.roundData.blackTokenSequence.length > 0) {
-      const token = this.roundData.blackTokenSequence.shift();
-      this.blackTokensGiven.push({ playerId, score: token });
-      console.log(`Player ${playerId} received black token: ${token} points`);
-      console.log(`Remaining black tokens: [${this.roundData.blackTokenSequence.join(', ')}]`);
-      return token;
-    }
-    console.log(`Player ${playerId} finished but no black tokens left`);
-    return 0;
+    console.log(`Player ${playerId} finished guessing`);
   }
 
   isRoundComplete() {
@@ -447,17 +435,23 @@ class GameRoom {
 
   calculateRoundScores() {
     const roundScores = new Map();
-    
-    // Ініціалізуємо всіх з 0
+    const scoreDetails = new Map(); // Детализація очок для кожного гравця
+
+    // Ініціалізуємо всіх з 0 та створюємо структуру для детализації
     for (let [playerId] of this.players) {
       roundScores.set(playerId, 0);
+      scoreDetails.set(playerId, {
+        guessing: [],  // Очки за відгадування
+        penalty: 0,    // Штраф за свій рисунок
+        total: 0       // Підсумок
+      });
     }
-    
+
     // Розподіляємо очки за правильні здогадки
     for (let [artistId, scoreSequence] of this.roundData.playerScoreSequences) {
       // Збираємо всі здогадки для цього художника
       const guessesForArtist = [];
-      
+
       for (let [guesserId, guesserGuesses] of this.guesses) {
         if (guesserGuesses.has(artistId)) {
           const guess = guesserGuesses.get(artistId);
@@ -469,39 +463,59 @@ class GameRoom {
           }
         }
       }
-      
+
       // Сортуємо за часом
       guessesForArtist.sort((a, b) => a.time - b.time);
-      
+
       // Видаємо очки з персональної черги художника
+      let distributedCount = 0;
       for (let i = 0; i < guessesForArtist.length && i < scoreSequence.length; i++) {
         const points = scoreSequence[i];
-        const current = roundScores.get(guessesForArtist[i].guesserId) || 0;
-        roundScores.set(guessesForArtist[i].guesserId, current + points);
+        const guesserId = guessesForArtist[i].guesserId;
+        const current = roundScores.get(guesserId) || 0;
+        roundScores.set(guesserId, current + points);
+
+        // Записуємо в детализацію
+        scoreDetails.get(guesserId).guessing.push(points);
+        distributedCount++;
+      }
+
+      // НОВЕ: Підраховуємо штраф для художника за нерозподілені очки
+      const undistributedPoints = scoreSequence.slice(distributedCount);
+      if (undistributedPoints.length > 0) {
+        const penalty = undistributedPoints.reduce((sum, p) => sum + p, 0);
+        const artistDetails = scoreDetails.get(artistId);
+        artistDetails.penalty = -penalty;
+
+        // Віднімаємо штраф з очок художника
+        const current = roundScores.get(artistId) || 0;
+        roundScores.set(artistId, current - penalty);
+
+        console.log(`Artist ${artistId}: ${guessesForArtist.length} players guessed, penalty: -${penalty} (undistributed: [${undistributedPoints.join(', ')}])`);
       }
     }
-    
-    // Додаємо чорні жетони
-    for (let { playerId, score } of this.blackTokensGiven) {
-      const current = roundScores.get(playerId) || 0;
-      roundScores.set(playerId, current + score);
-      console.log(`Adding black token score for ${playerId}: +${score}`);
+
+    // Підраховуємо підсумки для детализації
+    for (let [playerId, details] of scoreDetails) {
+      details.total = roundScores.get(playerId) || 0;
     }
-    
+
     // Оновлюємо загальні очки
     for (let [playerId, points] of roundScores) {
       const current = this.scores.get(playerId) || 0;
       this.scores.set(playerId, current + points);
     }
-    
+
     console.log('Round scores:', Object.fromEntries(roundScores));
+    console.log('Score details:', Object.fromEntries(scoreDetails));
     console.log('Total scores:', Object.fromEntries(this.scores));
-    
+
     return {
       roundScores: Object.fromEntries(roundScores),
+      scoreDetails: Object.fromEntries(scoreDetails), // НОВЕ: детализація
       totalScores: Object.fromEntries(this.scores),
       assignments: Object.fromEntries(this.roundData.assignments),
-      guesses: Object.fromEntries([...this.guesses].map(([id, guesses]) => 
+      guesses: Object.fromEntries([...this.guesses].map(([id, guesses]) =>
         [id, Object.fromEntries(guesses)]
       ))
     };
@@ -511,6 +525,25 @@ class GameRoom {
     return this.currentRound >= ROUNDS_PER_GAME;
   }
 
+  // НОВЕ: Метод для отримання прогресу здогадок кожного гравця (для хоста)
+  getGuessProgress() {
+    const progress = {};
+    const totalToGuess = this.players.size - 1; // Кожен гравець повинен відгадати всіх, крім себе
+
+    for (let [playerId, player] of this.players) {
+      const guesserGuesses = this.guesses.get(playerId);
+      const guessedCount = guesserGuesses ? guesserGuesses.size : 0;
+
+      progress[playerId] = {
+        name: player.name,
+        guessed: guessedCount,
+        total: totalToGuess
+      };
+    }
+
+    return progress;
+  }
+
   getState() {
     return {
       code: this.code,
@@ -518,7 +551,8 @@ class GameRoom {
       state: this.state,
       currentRound: this.currentRound,
       scores: Object.fromEntries(this.scores),
-      hostId: this.hostId
+      hostId: this.hostId,
+      answersRevealed: this.answersRevealed
     };
   }
 }
@@ -1308,7 +1342,16 @@ io.on('connection', (socket) => {
           round: roundData.round,
           wordSet: roundData.wordSet,
           personalAssignment: assignment,
-          players: Array.from(room.players.values())
+          players: Array.from(room.players.values()),
+          roundStartTime: roundData.roundStartTime
+        });
+      }
+
+      // НОВЕ: Відправляємо початковий прогрес здогадок хосту
+      const hostPlayer = Array.from(room.players.values()).find(p => p.id === room.hostId);
+      if (hostPlayer && hostPlayer.socketId) {
+        io.to(hostPlayer.socketId).emit('guess_progress_update', {
+          progress: room.getGuessProgress()
         });
       }
     }
@@ -1385,10 +1428,13 @@ io.on('connection', (socket) => {
     // НОВЕ: Валідація stroke даних
     const validatedStrokes = strokes.filter(stroke => {
       if (stroke.type === 'start' || stroke.type === 'draw') {
-        return stroke.x >= 0 && stroke.x <= 1 && 
+        return stroke.x >= 0 && stroke.x <= 1 &&
                stroke.y >= 0 && stroke.y <= 1 &&
                stroke.size > 0 && stroke.size <= 50 &&
                (stroke.tool === 'pen' || stroke.tool === 'eraser');
+      }
+      if (stroke.type === 'fill') {
+        return stroke.tool === 'fill' && stroke.color;
       }
       return stroke.type === 'end';
     });
@@ -1415,18 +1461,19 @@ io.on('connection', (socket) => {
   });
 
   // Здогадка
-  socket.on('make_guess', ({ targetId, number }) => {
+  socket.on('make_guess', ({ targetId, number, letter }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
 
-    const result = room.makeGuess(currentPlayerId, targetId, number);
+    const result = room.makeGuess(currentPlayerId, targetId, number, letter);
 
     if (result && result.success) {
       // ВИПРАВЛЕНО: Додаємо correct та правильне assignment до відповіді
-      console.log(`✅ Player ${currentPlayerId} guessed ${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
+      console.log(`✅ Player ${currentPlayerId} guessed ${letter}${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
 
       socket.emit('guess_accepted', {
         targetId,
+        letter,
         number,
         correct: result.correct,
         // Відправляємо правильне assignment (letter, number, word) щоб клієнт знав яке слово насправді загадане
@@ -1437,8 +1484,16 @@ io.on('connection', (socket) => {
       io.to(currentRoomCode).emit('drawing_locked', {
         playerId: targetId
       });
+
+      // НОВЕ: Відправляємо оновлений прогрес здогадок хосту
+      const hostPlayer = Array.from(room.players.values()).find(p => p.id === room.hostId);
+      if (hostPlayer && hostPlayer.socketId) {
+        io.to(hostPlayer.socketId).emit('guess_progress_update', {
+          progress: room.getGuessProgress()
+        });
+      }
     } else {
-      socket.emit('guess_rejected', { targetId, number });
+      socket.emit('guess_rejected', { targetId, letter, number });
     }
   });
   
@@ -1447,8 +1502,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
 
-    const blackToken = room.finishGuessing(currentPlayerId);
-    socket.emit('black_token_received', { score: blackToken });
+    room.finishGuessing(currentPlayerId);
 
     io.to(currentRoomCode).emit('player_finished_guessing', {
       playerId: currentPlayerId
@@ -1480,6 +1534,28 @@ io.on('connection', (socket) => {
       room.state = 'round_end';
     }
   });
+
+  // НОВЕ: Показати правильні відповіді (тільки хост)
+  socket.on('reveal_answers', () => {
+    const room = rooms.get(currentRoomCode);
+    if (!room || currentPlayerId !== room.hostId) {
+      console.log(`Player ${currentPlayerId} tried to reveal answers but is not host`);
+      return;
+    }
+
+    console.log(`Host ${currentPlayerId} revealing correct answers`);
+
+    // ВИПРАВЛЕНО: Встановлюємо флаг на сервері
+    room.answersRevealed = true;
+
+    // ВИПРАВЛЕНО: Відправляємо всі правильні відповіді (assignments) всім гравцям
+    const allAssignments = room.roundData ? Object.fromEntries(room.roundData.assignments) : {};
+
+    io.to(currentRoomCode).emit('answers_revealed', {
+      state: room.getState(),
+      assignments: allAssignments
+    });
+  });
   
   // Наступний раунд
   socket.on('next_round', () => {
@@ -1501,7 +1577,8 @@ io.on('connection', (socket) => {
         round: roundData.round,
         wordSet: roundData.wordSet,
         personalAssignment: assignment,
-        players: Array.from(room.players.values())
+        players: Array.from(room.players.values()),
+        roundStartTime: roundData.roundStartTime
       });
     }
   });

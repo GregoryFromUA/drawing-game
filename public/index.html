@@ -580,9 +580,25 @@
         }
 
         .custom-cursor.eraser-cursor {
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            border: 2px solid rgba(244, 67, 54, 0.6);
-            opacity: 0.8;
+            border-radius: 0 !important;
+            background-color: transparent !important;
+            border: none !important;
+            opacity: 1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f44336' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 20H7L2.5 15.5C1.83 14.83 1.83 13.67 2.5 13L13 2.5C13.67 1.83 14.83 1.83 15.5 2.5L21.5 8.5C22.17 9.17 22.17 10.33 21.5 11L17 15.5'/%3E%3Cpath d='M13 2.5L21.5 11'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .custom-cursor.fill-cursor {
+            border-radius: 0 !important;
+            background-color: transparent !important;
+            border: none !important;
+            opacity: 1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50' stroke='%23388E3C' stroke-width='1.5'%3E%3Cpath d='M12 2 L10 8 L4 10 L10 12 L12 18 L14 12 L20 10 L14 8 Z M12 10 C10.9 10 10 10.9 10 12 L10 18 L14 18 L14 12 C14 10.9 13.1 10 12 10 Z M8 20 L16 20 C17.1 20 18 20.9 18 22 L6 22 C6 20.9 6.9 20 8 20 Z'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
         }
 
         /* Скрываем стандартный курсор на главном canvas */
@@ -658,6 +674,14 @@
         .drawing-card.guessed {
             border-color: #4caf50;
             background: #f1f8e9;
+        }
+
+        /* НОВЕ: Стиль для очікування показу правильних відповідей */
+        .drawing-card.pending {
+            border: 3px solid #2196f3 !important;
+            background: #e3f2fd !important;
+            box-shadow: 0 0 12px rgba(33, 150, 243, 0.6) !important;
+            cursor: not-allowed;
         }
 
         /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
@@ -773,11 +797,10 @@
         .word-item:hover {
             background: #e8e8e8;
         }
-        
+
         .word-item.my-word {
             background: #ffd700;
             font-weight: bold;
-            animation: pulse 2s infinite;
         }
 
         /* Нові стилі для системи відгадування */
@@ -794,6 +817,18 @@
             font-weight: bold;
             border: 2px solid #4c6ef5;
             box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+        }
+
+        /* НОВЕ: Стиль для очікування показу правильних відповідей */
+        .word-item.pending {
+            background: #2196f3 !important;
+            color: white !important;
+            font-weight: bold;
+            border: 2px solid #1976d2;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.6);
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+            transition: all 0.4s ease-in-out;
         }
 
         /* НОВЕ: Стилі для правильних/неправильних відповідей */
@@ -1168,12 +1203,15 @@
             const [myGuesses, setMyGuesses] = useState({});
             const [usedNumbers, setUsedNumbers] = useState(new Set());
             const [myGuessResults, setMyGuessResults] = useState({}); // НОВЕ: Зберігає правильність моїх здогадок
+            const [showCorrectAnswers, setShowCorrectAnswers] = useState(false); // НОВЕ: Чи показувати правильні відповіді
+            const [allCorrectAssignments, setAllCorrectAssignments] = useState({}); // НОВЕ: Всі правильні відповіді всіх гравців
             const [isDrawingLocked, setIsDrawingLocked] = useState(false);
             const [roundResults, setRoundResults] = useState(null);
             const [finalResults, setFinalResults] = useState(null);
             const [error, setError] = useState('');
             const [isHost, setIsHost] = useState(false);
             const [codeCopied, setCodeCopied] = useState(false);
+            const [guessProgress, setGuessProgress] = useState({}); // НОВЕ: Прогрес здогадок гравців (для хоста)
 
             // Unicorn Canvas (Fake Artist) state
             const [unicornMode, setUnicornMode] = useState(false); // Чи гра в режимі Unicorn Canvas
@@ -1237,15 +1275,27 @@
                     setRoomData(state);
                     setGameState('lobby');
                     setIsHost(state.hostId === playerId);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                     localStorage.setItem('gameSession', JSON.stringify({ roomCode, playerId, playerName }));
                 });
                 
                 newSocket.on('player_joined', (state) => {
                     setRoomData(state);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                 });
-                
+
                 newSocket.on('player_ready_changed', (state) => {
                     setRoomData(state);
+                    // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+                    if (state?.answersRevealed !== undefined) {
+                        setShowCorrectAnswers(state.answersRevealed);
+                    }
                 });
                 
                 newSocket.on('round_started', (data) => {
@@ -1255,6 +1305,9 @@
                     setMyGuesses({});
                     setUsedNumbers(new Set());
                     setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
+                    setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
+                    setAllCorrectAssignments({}); // НОВЕ: Очищаємо всі правильні відповіді
+                    // НЕ очищаємо guessProgress - він оновиться автоматично через guess_progress_update
                     setIsDrawingLocked(false);
                 });
                 
@@ -1278,10 +1331,10 @@
                     }
                 });
 
-                newSocket.on('guess_accepted', ({ targetId, number, correct, targetAssignment }) => {
-                    console.log('✅ guess_accepted:', { targetId, number, correct, targetAssignment }); // DEBUG
-                    setMyGuesses(prev => ({ ...prev, [targetId]: number }));
-                    setUsedNumbers(prev => new Set([...prev, number]));
+                newSocket.on('guess_accepted', ({ targetId, number, letter, correct, targetAssignment }) => {
+                    console.log('✅ guess_accepted:', { targetId, number, letter, correct, targetAssignment }); // DEBUG
+                    setMyGuesses(prev => ({ ...prev, [targetId]: { letter, number } }));
+                    setUsedNumbers(prev => new Set([...prev, `${letter}${number}`]));
 
                     // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
                     // Вместо этого сохраняем правильный ответ в myGuessResults
@@ -1289,6 +1342,7 @@
                         const newResults = {
                             ...prev,
                             [targetId]: {
+                                letter,
                                 number,
                                 correct,
                                 // Сохраняем правильное assignment от сервера
@@ -1299,7 +1353,25 @@
                         return newResults;
                     });
                 });
-                
+
+                // НОВЕ: Обробник показу правильних відповідей
+                newSocket.on('answers_revealed', ({ state, assignments }) => {
+                    console.log('📢 Answers revealed by host', state, assignments);
+                    if (state?.answersRevealed) {
+                        setShowCorrectAnswers(true);
+                    }
+                    if (assignments) {
+                        setAllCorrectAssignments(assignments);
+                        console.log('📋 All correct assignments:', assignments);
+                    }
+                });
+
+                // НОВЕ: Обробник оновлення прогресу здогадок (тільки для хоста)
+                newSocket.on('guess_progress_update', ({ progress }) => {
+                    setGuessProgress(progress);
+                    console.log('📊 Guess progress updated:', progress);
+                });
+
                 newSocket.on('round_ended', (results) => {
                     setRoundResults(results);
                     setGameState('round_end');
@@ -1518,7 +1590,11 @@
                         continue;
                     }
 
-                    if (stroke.type === 'start') {
+                    if (stroke.type === 'fill') {
+                        // Обработка заливки всего canvas
+                        ctx.fillStyle = stroke.color || '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    } else if (stroke.type === 'start') {
                         ctx.beginPath();
                         ctx.strokeStyle = stroke.color || '#000000';
                         ctx.fillStyle = stroke.color || '#000000';
@@ -1663,9 +1739,9 @@
                 }
             };
 
-            const makeGuess = (targetId, number) => {
-                if (socket && !myGuesses[targetId] && !usedNumbers.has(number)) {
-                    socket.emit('make_guess', { targetId, number });
+            const makeGuess = (targetId, number, letter) => {
+                if (socket && !myGuesses[targetId]) {
+                    socket.emit('make_guess', { targetId, number, letter });
                 }
             };
 
@@ -2491,10 +2567,13 @@
                         myGuesses={myGuesses}
                         usedNumbers={usedNumbers}
                         myGuessResults={myGuessResults}
+                        showCorrectAnswers={showCorrectAnswers}
+                        allCorrectAssignments={allCorrectAssignments}
                         isDrawingLocked={isDrawingLocked}
                         makeGuess={makeGuess}
                         isHost={isHost}
                         endRound={endRound}
+                        guessProgress={guessProgress}
                     />
                 );
             }
@@ -2642,6 +2721,45 @@
                                             .sort(([,a], [,b]) => b - a)
                                             .map(([pid, score]) => {
                                                 const player = roundData?.players?.find(p => p.id === pid);
+                                                const details = roundResults?.scoreDetails?.[pid];
+
+                                                // DEBUG: Логуємо дані для відладки
+                                                if (details) {
+                                                    console.log(`Player ${player?.name}:`, {
+                                                        guessing: details.guessing,
+                                                        penalty: details.penalty,
+                                                        total: details.total
+                                                    });
+                                                }
+
+                                                // Формуємо формулу: 5+6+4-3=12
+                                                let formula = '';
+                                                if (details) {
+                                                    const parts = [];
+
+                                                    // Додаємо очки за відгадування
+                                                    if (Array.isArray(details.guessing)) {
+                                                        parts.push(...details.guessing.map(p => Number(p)));
+                                                    }
+
+                                                    // Додаємо штраф якщо є
+                                                    if (details.penalty !== 0) {
+                                                        parts.push(Number(details.penalty));
+                                                    }
+
+                                                    // Формуємо строку: обробляємо кожне число окремо
+                                                    if (parts.length > 0) {
+                                                        formula = parts.map((num, idx) => {
+                                                            if (idx === 0) return String(num);
+                                                            return num >= 0 ? `+${num}` : String(num);
+                                                        }).join('') + `=${details.total}`;
+                                                    } else {
+                                                        formula = `${details.total}`;
+                                                    }
+                                                } else {
+                                                    formula = (roundResults?.roundScores[pid] || 0).toString();
+                                                }
+
                                                 return (
                                                     <tr key={pid}>
                                                         <td>
@@ -2649,7 +2767,7 @@
                                                             {pid === playerId && ' (Ви)'}
                                                         </td>
                                                         <td className="score-change">
-                                                            +{roundResults?.roundScores[pid] || 0}
+                                                            {formula}
                                                         </td>
                                                         <td style={{ fontWeight: 'bold' }}>
                                                             {score}
@@ -2754,6 +2872,23 @@
                         </div>
 
                         <div className="score-info">
+                            <h3>⚠️ Штрафи за погані малюнки</h3>
+                            <p>
+                                Якщо інші гравці НЕ відгадали ваш малюнок, ви отримуєте мінусові очки!
+                                Штраф = сума нерозподілених очок з вашого пулу.
+                            </p>
+                            <p>
+                                <strong>Приклад:</strong> У грі 5 гравців, пул очок кожного: [6, 5, 5, 4].<br/>
+                                • Якщо 3 гравці відгадали ваш малюнок → розподілено [6, 5, 5] → штраф <strong>-4 очка</strong><br/>
+                                • Якщо 2 гравці відгадали → розподілено [6, 5] → штраф <strong>-9 очок</strong><br/>
+                                • Якщо ніхто не відгадав → штраф <strong>-20 очок</strong>
+                            </p>
+                            <p style={{ color: '#f44336', fontWeight: 'bold' }}>
+                                💡 Малюйте зрозуміло, щоб інші змогли відгадати!
+                            </p>
+                        </div>
+
+                        <div className="score-info">
                             <h3>Завершення раунду</h3>
                             <p>
                                 Тільки хост (гравець з короною 👑) може завершити раунд.
@@ -2791,15 +2926,18 @@
             myGuesses,
             usedNumbers,
             myGuessResults,
+            showCorrectAnswers,
+            allCorrectAssignments,
             isDrawingLocked,
             makeGuess,
             isHost,
-            endRound
+            endRound,
+            guessProgress
         }) {
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
             const [currentColor, setCurrentColor] = useState('#000000');
-            const [currentSize, setCurrentSize] = useState(5);
+            const [currentSize, setCurrentSize] = useState(6);
             const [currentTool, setCurrentTool] = useState('pen');
             const [showScoreRules, setShowScoreRules] = useState(false);
 
@@ -2809,6 +2947,10 @@
             const [draggedWord, setDraggedWord] = useState(null); // {letter, number, word}
             const [hoveredPlayer, setHoveredPlayer] = useState(null); // playerId при hover під час drag
             const [wordAssignments, setWordAssignments] = useState({}); // playerId -> {letter, number, word}
+
+            // НОВЕ: Таймер раунду (синхронізований з сервером)
+            const [roundStartTime, setRoundStartTime] = useState(null); // Час початку раунду з сервера
+            const [roundTimer, setRoundTimer] = useState(120); // Поточне значення таймера
 
             // Custom cursor refs (для производительности - без ререндеров)
             const customCursorRef = useRef(null);
@@ -2823,12 +2965,13 @@
             const canvasBoundsRef = useRef(null);
             
             const colors = [
-                '#000000', '#FF0000', '#00FF00', '#0000FF', 
-                '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', 
-                '#800080', '#A52A2A', '#FFC0CB', '#808080'
+                '#000000', '#FF0000', '#00FF00', '#0000FF',
+                '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500',
+                '#800080', '#D2691E', '#FFC0CB', '#808080',
+                '#FF6600', '#006400', '#8B4513', '#20B2AA'
             ];
             
-            const sizes = [2, 4, 7, 11, 16];
+            const sizes = [3, 6, 10, 15, 20];
             
             // Оптимізована синхронізація малювання
             useEffect(() => {
@@ -2851,6 +2994,35 @@
                 };
             }, [socket]);
 
+            // НОВЕ: Синхронізація roundStartTime з сервером
+            useEffect(() => {
+                if (roundData?.roundStartTime) {
+                    setRoundStartTime(roundData.roundStartTime);
+                }
+            }, [roundData]);
+
+            // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
+            useEffect(() => {
+                if (!roundStartTime) {
+                    setRoundTimer(120);
+                    return;
+                }
+
+                const updateTimer = () => {
+                    const elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
+                    const remaining = Math.max(0, 120 - elapsed);
+                    setRoundTimer(remaining);
+                };
+
+                // Одразу оновлюємо таймер
+                updateTimer();
+
+                // Оновлюємо кожну секунду
+                const intervalId = setInterval(updateTimer, 1000);
+
+                return () => clearInterval(intervalId);
+            }, [roundStartTime]);
+
             // Оптимізоване оновлення cursor через пряме DOM маніпулювання
             const updateCustomCursor = useCallback((x, y) => {
                 if (!customCursorRef.current) return;
@@ -2859,19 +3031,26 @@
                 customCursorRef.current.style.top = `${y}px`;
 
                 // Обновляем размер и цвет
-                const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
-                customCursorRef.current.style.width = `${size}px`;
-                customCursorRef.current.style.height = `${size}px`;
-                customCursorRef.current.style.backgroundColor =
-                    currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+                if (currentTool === 'fill') {
+                    customCursorRef.current.style.width = `32px`;
+                    customCursorRef.current.style.height = `32px`;
+                    customCursorRef.current.style.backgroundColor = 'transparent';
+                } else {
+                    const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
+                    customCursorRef.current.style.width = `${size}px`;
+                    customCursorRef.current.style.height = `${size}px`;
+                    customCursorRef.current.style.backgroundColor =
+                        currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+                }
 
                 // Обновляем класс
+                customCursorRef.current.classList.remove('eraser-cursor', 'pen-cursor', 'fill-cursor');
                 if (currentTool === 'eraser') {
                     customCursorRef.current.classList.add('eraser-cursor');
-                    customCursorRef.current.classList.remove('pen-cursor');
+                } else if (currentTool === 'fill') {
+                    customCursorRef.current.classList.add('fill-cursor');
                 } else {
                     customCursorRef.current.classList.add('pen-cursor');
-                    customCursorRef.current.classList.remove('eraser-cursor');
                 }
             }, [currentColor, currentSize, currentTool]);
             
@@ -2920,6 +3099,25 @@
             const startDrawing = (e) => {
                 if (isDrawingLocked || !ctxRef.current || !canvasBoundsRef.current) return;
 
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Обработка инструмента заливки
+                if (currentTool === 'fill') {
+                    // Закрашиваем весь canvas выбранным цветом
+                    ctx.fillStyle = currentColor;
+                    ctx.fillRect(0, 0, 640, 480);
+
+                    // Отправляем заливку как одно действие
+                    const strokeData = {
+                        color: currentColor,
+                        tool: 'fill',
+                        type: 'fill'
+                    };
+
+                    strokeBufferRef.current.push(strokeData);
+                    return; // Не запускаем обычное рисование
+                }
+
                 setIsDrawing(true);
                 const rect = canvasBoundsRef.current; // Используем кешированное значение
 
@@ -2929,8 +3127,6 @@
 
                 lastXRef.current = x;
                 lastYRef.current = y;
-
-                const ctx = ctxRef.current; // Используем кешированный контекст
 
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
@@ -3054,8 +3250,8 @@
                     return updated;
                 });
 
-                // Відправляємо на сервер
-                makeGuess(targetPlayerId, wordData.number);
+                // ВИПРАВЛЕНО: Відправляємо на сервер і букву, і номер
+                makeGuess(targetPlayerId, wordData.number, wordData.letter);
 
                 // Скидаємо селекти
                 setSelectedWord(null);
@@ -3256,8 +3452,24 @@
                                                     className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('eraser')}
                                                     disabled={isDrawingLocked}
+                                                    title="Ластик"
                                                 >
-                                                    🧹
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M20 20H7L2.5 15.5C1.83 14.83 1.83 13.67 2.5 13L13 2.5C13.67 1.83 14.83 1.83 15.5 2.5L21.5 8.5C22.17 9.17 22.17 10.33 21.5 11L17 15.5"/>
+                                                        <path d="M13 2.5L21.5 11"/>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    className={`tool-btn ${currentTool === 'fill' ? 'active' : ''}`}
+                                                    onClick={() => setCurrentTool('fill')}
+                                                    disabled={isDrawingLocked}
+                                                    title="Заливка"
+                                                >
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
+                                                        <path d="M12 2L10 8L4 10L10 12L12 18L14 12L20 10L14 8Z"/>
+                                                        <path d="M12 10C10.9 10 10 10.9 10 12L10 18L14 18L14 12C14 10.9 13.1 10 12 10Z"/>
+                                                        <path d="M8 20L16 20C17.1 20 18 20.9 18 22L6 22C6 20.9 6.9 20 8 20Z"/>
+                                                    </svg>
                                                 </button>
                                             </div>
                                         </div>
@@ -3278,14 +3490,14 @@
                                         </div>
                                         
                                         <div className="tool-group">
-                                            <label>Розмір: <span style={{ color: '#667eea', fontWeight: 'bold' }}>{currentSize}px</span></label>
                                             <div className="size-selector">
                                                 {sizes.map(size => (
                                                     <button
                                                         key={size}
                                                         className={`size-btn ${currentSize === size ? 'active' : ''}`}
                                                         onClick={() => setCurrentSize(size)}
-                                                        disabled={isDrawingLocked}
+                                                        disabled={isDrawingLocked || currentTool === 'fill'}
+                                                        title={`Розмір: ${size}px`}
                                                     >
                                                         <div
                                                             className="size-dot"
@@ -3304,6 +3516,63 @@
                                             >
                                                 Очистити
                                             </button>
+
+                                            {/* НОВЕ: Прогрес здогадок (тільки для хоста) */}
+                                            {isHost && guessProgress && Object.keys(guessProgress).length > 0 && (
+                                                <div style={{
+                                                    borderTop: '2px solid #e0e0e0',
+                                                    marginTop: '10px',
+                                                    paddingTop: '10px',
+                                                    marginBottom: '10px'
+                                                }}>
+                                                    <label style={{
+                                                        fontSize: '0.8em',
+                                                        color: '#667eea',
+                                                        marginBottom: '8px',
+                                                        display: 'block',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        Прогрес здогадок:
+                                                    </label>
+                                                    <div style={{
+                                                        maxHeight: '200px',
+                                                        overflowY: 'auto',
+                                                        fontSize: '0.85em'
+                                                    }}>
+                                                        {Object.entries(guessProgress).map(([pid, data]) => {
+                                                            const nameLength = data.name?.length || 0;
+                                                            const fontSize = nameLength > 20 ? '0.7em' : nameLength > 15 ? '0.8em' : '1em';
+                                                            return (
+                                                                <div key={pid} style={{
+                                                                    padding: '4px 8px',
+                                                                    marginBottom: '3px',
+                                                                    background: data.guessed === data.total ? '#d4edda' : '#fff',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #e0e0e0'
+                                                                }}>
+                                                                    <span style={{
+                                                                        fontWeight: 'bold',
+                                                                        color: '#333',
+                                                                        fontSize: fontSize,
+                                                                        wordBreak: 'break-word'
+                                                                    }}>
+                                                                        {data.name}
+                                                                    </span>
+                                                                    {' '}
+                                                                    <span style={{
+                                                                        color: data.guessed === data.total ? '#28a745' : '#666',
+                                                                        fontWeight: '600',
+                                                                        fontSize: fontSize
+                                                                    }}>
+                                                                        ({data.guessed}/{data.total})
+                                                                    </span>
+                                                                    {data.guessed === data.total && ' ✓'}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Кнопка завершення раунду (тільки для хоста) */}
                                             {isHost && otherPlayers.length > 0 && (
@@ -3329,6 +3598,21 @@
                                                     >
                                                         Завершити раунд
                                                     </button>
+
+                                                    {!showCorrectAnswers && (
+                                                        <button
+                                                            className="action-btn btn-success"
+                                                            onClick={() => {
+                                                                if (socket) {
+                                                                    socket.emit('reveal_answers');
+                                                                }
+                                                            }}
+                                                            title="Показати всім правильні відповіді (які слова насправді були загадані)"
+                                                            style={{ marginTop: '5px' }}
+                                                        >
+                                                            Показати правильні відповіді
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -3339,8 +3623,22 @@
                                 <div className="canvas-section">
                                     {/* Завдання */}
                                     {myAssignment && (
-                                        <div className="task-header">
+                                        <div className="task-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                                            {/* Таймер зліва */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: '15px',
+                                                fontSize: '1.3em',
+                                                fontWeight: 'bold',
+                                                color: roundTimer <= 30 ? '#f44336' : '#333',
+                                                minWidth: '50px'
+                                            }}>
+                                                {roundTimer}
+                                            </div>
+
+                                            {/* Слово-завдання по центру */}
                                             <div className="task-word" style={{
+                                                flex: 1,
                                                 fontSize: (() => {
                                                     const word = myAssignment.word || '';
                                                     const length = word.length;
@@ -3415,6 +3713,7 @@
                                                 // Нова система відгадування
                                                 wordAssignment={wordAssignments[player.id]}
                                                 guessResult={myGuessResults[player.id]}
+                                                showCorrectAnswers={showCorrectAnswers}
                                                 isSelected={selectedPlayer === player.id}
                                                 isHovered={hoveredPlayer === player.id}
                                                 onClick={() => handlePlayerClick(player.id)}
@@ -3448,21 +3747,21 @@
                                     );
                                     const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
 
-                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
-                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
-                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
-                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    // 2. ВИПРАВЛЕНО: Перевіряємо чи це правильна відповідь (шукаємо у всіх правильних відповідях)
+                                    const correctAnswerPlayerId = Object.keys(allCorrectAssignments).find(
+                                        pid => allCorrectAssignments[pid]?.letter === letter &&
+                                               allCorrectAssignments[pid]?.number === number
                                     );
 
-                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
-                                    // Слово неправильне якщо: користувач вибрав і correct=false
-                                    const isIncorrect = userGuessResult?.correct === false;
+                                    // ВИПРАВЛЕНО: Логіка відображення станів
+                                    const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
+                                    const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false) && (correctAnswerPlayerId === undefined); // Неправильно І НЕ є правильним для інших
 
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
@@ -3500,21 +3799,21 @@
                                     );
                                     const userGuessResult = userSelectedPlayerId ? myGuessResults[userSelectedPlayerId] : null;
 
-                                    // 2. Перевіряємо чи це правильна відповідь від сервера (targetAssignment)
-                                    const correctAnswerPlayerId = Object.keys(myGuessResults).find(
-                                        pid => myGuessResults[pid]?.targetAssignment?.letter === letter &&
-                                               myGuessResults[pid]?.targetAssignment?.number === number
+                                    // 2. ВИПРАВЛЕНО: Перевіряємо чи це правильна відповідь (шукаємо у всіх правильних відповідях)
+                                    const correctAnswerPlayerId = Object.keys(allCorrectAssignments).find(
+                                        pid => allCorrectAssignments[pid]?.letter === letter &&
+                                               allCorrectAssignments[pid]?.number === number
                                     );
 
-                                    // Слово правильне якщо: користувач вибрав і correct=true АБО це targetAssignment
-                                    const isCorrect = (userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined);
-                                    // Слово неправильне якщо: користувач вибрав і correct=false
-                                    const isIncorrect = userGuessResult?.correct === false;
+                                    // ВИПРАВЛЕНО: Логіка відображення станів
+                                    const isPending = userGuessResult && !showCorrectAnswers; // Вибрано, але відповіді не показані
+                                    const isCorrect = showCorrectAnswers && ((userGuessResult?.correct === true) || (correctAnswerPlayerId !== undefined));
+                                    const isIncorrect = showCorrectAnswers && (userGuessResult?.correct === false) && (correctAnswerPlayerId === undefined); // Неправильно І НЕ є правильним для інших
 
                                     return (
                                         <div
                                             key={`${letter}-${number}`}
-                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                                            className={`word-item ${isMyWord ? 'my-word' : ''} ${isUsed ? 'used' : ''} ${isSelected ? 'selected' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                                             title={word}
                                             draggable={!isMyWord && !isUsed}
                                             onClick={() => handleWordClick(letter, number, word)}
@@ -3567,6 +3866,7 @@
             // Нова система відгадування
             wordAssignment,
             guessResult,
+            showCorrectAnswers,
             isSelected,
             isHovered,
             onClick,
@@ -3627,7 +3927,14 @@
                 for (let i = lastDrawnIndexRef.current; i < drawing.length; i++) {
                     const stroke = drawing[i];
 
-                    if (stroke.type === 'start') {
+                    if (stroke.type === 'fill') {
+                        // Обработка заливки всего canvas
+                        ctx.fillStyle = stroke.color;
+                        ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+                        isDrawingPathRef.current = false;
+                        lastXRef.current = null;
+                        lastYRef.current = null;
+                    } else if (stroke.type === 'start') {
                         const x = stroke.x * canvasSize.width;
                         const y = stroke.y * canvasSize.height;
 
@@ -3681,19 +3988,46 @@
                 lastDrawnIndexRef.current = drawing.length;
             }, [drawing, canvasSize]);
 
-            const hasAssignment = wordAssignment !== undefined;
-            // НОВЕ: Визначаємо чи відповідь правильна/неправильна
-            const isCorrect = guessResult?.correct === true;
-            const isIncorrect = guessResult?.correct === false;
+            // ВИПРАВЛЕНО: Логіка відображення станів
+            const isPending = wordAssignment && !showCorrectAnswers; // Вибрано, але відповіді не показані
+            const isCorrect = showCorrectAnswers && ((guessResult?.correct === true) || guessResult?.targetAssignment);
+            const isIncorrect = showCorrectAnswers && (guessResult?.correct === false);
 
-            // ВИПРАВЛЕНО: Показуємо правильне слово від сервера, а не вибір користувача
-            const displayWord = guessResult?.targetAssignment?.word || wordAssignment?.word;
-            // Колір тексту залежить від правильності
-            const wordColor = isCorrect ? '#4caf50' : (isIncorrect ? '#f44336' : '#4caf50');
+            // ВИПРАВЛЕНО: Логіка відображення слова
+            // 1. Якщо користувач вибрав слово (wordAssignment) - показуємо його
+            // 2. Якщо НЕТ wordAssignment, але є правильне слово (targetAssignment) І showCorrectAnswers=true - показуємо правильне
+            let displayWord = null;
+            let wordColor = '#2196f3'; // За замовчуванням голубий
+
+            if (wordAssignment) {
+                // Користувач вибрав слово
+                if (isPending) {
+                    // Показуємо вибране слово голубим
+                    displayWord = wordAssignment.word;
+                    wordColor = '#2196f3';
+                } else if (guessResult?.correct === true) {
+                    // Показуємо вибране слово зеленим
+                    displayWord = wordAssignment.word;
+                    wordColor = '#4caf50';
+                } else if (guessResult?.correct === false) {
+                    // ВИПРАВЛЕНО: Показуємо ПРАВИЛЬНЕ слово червоним (щоб гравець побачив правильну відповідь)
+                    displayWord = guessResult?.targetAssignment?.word || wordAssignment.word;
+                    wordColor = '#f44336';
+                } else {
+                    displayWord = wordAssignment.word;
+                    wordColor = '#2196f3';
+                }
+            } else if (guessResult?.targetAssignment && showCorrectAnswers) {
+                // Користувач не вибрав, але хост показав правильні відповіді
+                displayWord = guessResult.targetAssignment.word;
+                wordColor = '#4caf50'; // Завжди зелений для правильних відповідей
+            }
+
+            const hasAssignment = displayWord !== null;
 
             return (
                 <div
-                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                    className={`drawing-card ${hasAssignment ? 'matched' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'drag-over' : ''} ${isPending ? 'pending' : ''} ${isCorrect ? 'correct' : ''} ${isIncorrect ? 'incorrect' : ''}`}
                     data-player-id={player.id}
                     onClick={onClick}
                     onDragOver={onDragOver}
