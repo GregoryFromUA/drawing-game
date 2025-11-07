@@ -1308,7 +1308,12 @@
                     setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
                     setAllCorrectAssignments({}); // НОВЕ: Очищаємо всі правильні відповіді
                     setGuessProgress({}); // НОВЕ: Очищаємо прогрес здогадок для нового раунду
+                    setRoundStartTime(null); // НОВЕ: Спочатку очищаємо час старту
                     setIsDrawingLocked(false);
+                    // Встановлюємо новий roundStartTime після очищення
+                    if (data?.roundStartTime) {
+                        setTimeout(() => setRoundStartTime(data.roundStartTime), 0);
+                    }
                 });
                 
                 newSocket.on('drawing_updated', ({ playerId, strokes }) => {
@@ -2999,7 +3004,7 @@
                 if (roundData?.roundStartTime) {
                     setRoundStartTime(roundData.roundStartTime);
                 }
-            }, [roundData]);
+            }, [roundData?.roundStartTime]);
 
             // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
             useEffect(() => {
