@@ -1427,10 +1427,13 @@ io.on('connection', (socket) => {
     // НОВЕ: Валідація stroke даних
     const validatedStrokes = strokes.filter(stroke => {
       if (stroke.type === 'start' || stroke.type === 'draw') {
-        return stroke.x >= 0 && stroke.x <= 1 && 
+        return stroke.x >= 0 && stroke.x <= 1 &&
                stroke.y >= 0 && stroke.y <= 1 &&
                stroke.size > 0 && stroke.size <= 50 &&
                (stroke.tool === 'pen' || stroke.tool === 'eraser');
+      }
+      if (stroke.type === 'fill') {
+        return stroke.tool === 'fill' && stroke.color;
       }
       return stroke.type === 'end';
     });

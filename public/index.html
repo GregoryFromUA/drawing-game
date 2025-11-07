@@ -2966,7 +2966,7 @@
             const colors = [
                 '#000000', '#FF0000', '#00FF00', '#0000FF',
                 '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500',
-                '#800080', '#A52A2A', '#FFC0CB', '#808080',
+                '#800080', '#D2691E', '#FFC0CB', '#808080',
                 '#FF6600', '#006400', '#8B4513', '#20B2AA'
             ];
             
@@ -2998,7 +2998,7 @@
                 if (roundData?.roundStartTime) {
                     setRoundStartTime(roundData.roundStartTime);
                 }
-            }, [roundData?.roundStartTime]);
+            }, [roundData]);
 
             // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
             useEffect(() => {
@@ -3451,15 +3451,24 @@
                                                     className={`tool-btn ${currentTool === 'eraser' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('eraser')}
                                                     disabled={isDrawingLocked}
+                                                    title="Ластик"
                                                 >
-                                                    🧹
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M20 20H7L2.5 15.5C1.83 14.83 1.83 13.67 2.5 13L13 2.5C13.67 1.83 14.83 1.83 15.5 2.5L21.5 8.5C22.17 9.17 22.17 10.33 21.5 11L17 15.5"/>
+                                                        <path d="M13 2.5L21.5 11"/>
+                                                    </svg>
                                                 </button>
                                                 <button
                                                     className={`tool-btn ${currentTool === 'fill' ? 'active' : ''}`}
                                                     onClick={() => setCurrentTool('fill')}
                                                     disabled={isDrawingLocked}
+                                                    title="Заливка"
                                                 >
-                                                    🪣
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
+                                                        <path d="M12 2L10 8L4 10L10 12L12 18L14 12L20 10L14 8Z"/>
+                                                        <path d="M12 10C10.9 10 10 10.9 10 12L10 18L14 18L14 12C14 10.9 13.1 10 12 10Z"/>
+                                                        <path d="M8 20L16 20C17.1 20 18 20.9 18 22L6 22C6 20.9 6.9 20 8 20Z"/>
+                                                    </svg>
                                                 </button>
                                             </div>
                                         </div>
@@ -3488,6 +3497,7 @@
                                                         className={`size-btn ${currentSize === size ? 'active' : ''}`}
                                                         onClick={() => setCurrentSize(size)}
                                                         disabled={isDrawingLocked || currentTool === 'fill'}
+                                                        title={`Розмір: ${size}px`}
                                                     >
                                                         <div
                                                             className="size-dot"
@@ -3529,27 +3539,37 @@
                                                         overflowY: 'auto',
                                                         fontSize: '0.85em'
                                                     }}>
-                                                        {Object.entries(guessProgress).map(([pid, data]) => (
-                                                            <div key={pid} style={{
-                                                                padding: '4px 8px',
-                                                                marginBottom: '3px',
-                                                                background: data.guessed === data.total ? '#d4edda' : '#fff',
-                                                                borderRadius: '4px',
-                                                                border: '1px solid #e0e0e0'
-                                                            }}>
-                                                                <span style={{ fontWeight: 'bold', color: '#333' }}>
-                                                                    {data.name}
-                                                                </span>
-                                                                {' '}
-                                                                <span style={{
-                                                                    color: data.guessed === data.total ? '#28a745' : '#666',
-                                                                    fontWeight: '600'
+                                                        {Object.entries(guessProgress).map(([pid, data]) => {
+                                                            const nameLength = data.name?.length || 0;
+                                                            const fontSize = nameLength > 20 ? '0.7em' : nameLength > 15 ? '0.8em' : '1em';
+                                                            return (
+                                                                <div key={pid} style={{
+                                                                    padding: '4px 8px',
+                                                                    marginBottom: '3px',
+                                                                    background: data.guessed === data.total ? '#d4edda' : '#fff',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #e0e0e0'
                                                                 }}>
-                                                                    ({data.guessed}/{data.total})
-                                                                </span>
-                                                                {data.guessed === data.total && ' ✓'}
-                                                            </div>
-                                                        ))}
+                                                                    <span style={{
+                                                                        fontWeight: 'bold',
+                                                                        color: '#333',
+                                                                        fontSize: fontSize,
+                                                                        wordBreak: 'break-word'
+                                                                    }}>
+                                                                        {data.name}
+                                                                    </span>
+                                                                    {' '}
+                                                                    <span style={{
+                                                                        color: data.guessed === data.total ? '#28a745' : '#666',
+                                                                        fontWeight: '600',
+                                                                        fontSize: fontSize
+                                                                    }}>
+                                                                        ({data.guessed}/{data.total})
+                                                                    </span>
+                                                                    {data.guessed === data.total && ' ✓'}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             )}
