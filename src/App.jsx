@@ -47,7 +47,7 @@ function fallbackCopyToClipboard(text, onSuccess) {
 }
 
 // Головний компонент гри
-function Game() {
+function App() {
     const [socket, setSocket] = useState(null);
     const [gameState, setGameState] = useState('menu');
     const [roomCode, setRoomCode] = useState('');
