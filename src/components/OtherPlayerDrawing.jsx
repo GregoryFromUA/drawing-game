@@ -67,6 +67,7 @@ function OtherPlayerDrawing({
     // Малюємо тільки нові strokes починаючи з lastDrawnIndex
     for (let i = lastDrawnIndexRef.current; i < drawing.length; i++) {
       const stroke = drawing[i];
+      console.log('🖌️ OtherPlayerDrawing rendering stroke:', stroke, 'isDrawingPath:', isDrawingPathRef.current, 'lastX:', lastXRef.current);
 
       if (stroke.type === 'fill') {
         // Обробка заливки canvas
