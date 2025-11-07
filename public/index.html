@@ -312,15 +312,18 @@
         .game-main {
             flex: 1;
             display: flex;
-            flex-direction: column;
+            flex-direction: row; /* ЗМІНЕНО: горизонтальний layout */
             padding: 10px;
+            gap: 15px;
         }
-        
+
         /* Верхня частина з інструментами та канвасом */
         .game-top {
+            flex: 1; /* ДОДАНО: займає всю ліву частину */
             display: flex;
+            flex-direction: row; /* Залишаємо горизонтальний для tools + canvas */
             gap: 15px;
-            margin-bottom: 10px;
+            min-width: 0; /* ДОДАНО: дозволяє shrink */
         }
         
         /* Ліва панель інструментів */
@@ -611,15 +614,17 @@
             cursor: pointer !important;
         }
         
-        /* Нижня секція з канвасами інших гравців */
+        /* ЗМІНЕНО: Права секція з канвасами інших гравців */
         .others-section {
-            flex: 1;
+            width: 580px; /* ЗМІНЕНО: фіксована ширина для 2 колонок (266px * 2 + gap + padding) */
             display: flex;
             flex-direction: column;
             background: #f0f4f8;
             border-radius: 10px;
             padding: 10px;
             min-height: 0;
+            overflow: hidden; /* ДОДАНО */
+            flex-shrink: 0; /* ДОДАНО: не стискається */
         }
         
         .others-header {
@@ -637,7 +642,7 @@
         
         .others-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(2, 1fr); /* ЗМІНЕНО: 2 фіксовані колонки */
             gap: 12px;
         }
         
@@ -1054,35 +1059,49 @@
             }
         }
         
-        @media (max-width: 1200px) {
+        @media (max-width: 1400px) {
             .lobby-content {
                 grid-template-columns: 1fr;
             }
-            
-            .game-container {
-                flex-direction: column;
-            }
-            
+
+            /* ОНОВЛЕНО: повертаємо вертикальний layout на малих екранах */
             .game-main {
-                height: auto;
+                flex-direction: column !important;
             }
-            
+
+            .game-top {
+                flex-direction: row !important;
+            }
+
+            .others-section {
+                width: 100% !important;
+                height: 300px; /* фіксована висота для скролу */
+            }
+
             .cards-panel {
                 width: 100%;
                 flex-direction: row;
                 overflow-x: auto;
             }
         }
-        
+
         @media (max-width: 768px) {
             .lobby {
                 padding: 20px;
             }
-            
+
             .others-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr !important; /* 1 колонка на мобільних */
             }
-            
+
+            .game-top {
+                flex-direction: column !important; /* вертикальний layout інструментів */
+            }
+
+            .tools-panel {
+                width: 100% !important;
+            }
+
             .copy-success {
                 right: auto;
                 left: 50%;
@@ -3875,7 +3894,7 @@
             onDrop
         }) {
             const canvasRef = useRef(null);
-            const [canvasSize] = useState({ width: 240, height: 180 });
+            const [canvasSize] = useState({ width: 266, height: 200 }); /* ЗМІНЕНО: збільшено розмір */
             const lastDrawnIndexRef = useRef(0); // Индекс последнего отрисованного stroke
             const isDrawingPathRef = useRef(false);
             const lastXRef = useRef(null);
