@@ -1620,16 +1620,16 @@
                         ctx.lineWidth = 3;
                         ctx.lineCap = 'round';
                         ctx.lineJoin = 'round';
-                        const x = stroke.x * canvas.width;
-                        const y = stroke.y * canvas.height;
+                        const x = (stroke.x / 1000) * canvas.width;  // Декодуємо з integer 0-1000
+                        const y = (stroke.y / 1000) * canvas.height;  // Декодуємо з integer 0-1000
                         // Малюємо початкову точку
                         ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
                         ctx.fill();
                         ctx.beginPath();
                         ctx.moveTo(x, y);
                     } else if (stroke.type === 'draw') {
-                        const x = stroke.x * canvas.width;
-                        const y = stroke.y * canvas.height;
+                        const x = (stroke.x / 1000) * canvas.width;  // Декодуємо з integer 0-1000
+                        const y = (stroke.y / 1000) * canvas.height;  // Декодуємо з integer 0-1000
                         ctx.lineTo(x, y);
                         ctx.stroke();
                         ctx.beginPath();
@@ -1696,11 +1696,11 @@
                 }
             }, [gameState]);
 
-            // ВИПРАВЛЕНО: Батчинг для socket.emit як в Doodle Prophet
+            // ВИПРАВЛЕНО: Батчинг з інтервалом для оптимізації трафіку
             useEffect(() => {
                 if (gameState !== 'unicorn_drawing' && gameState !== 'voting_fake' && gameState !== 'fake_guessing' && gameState !== 'voting_answer') return;
 
-                let animationFrameId;
+                let intervalId;
 
                 const sendStrokes = () => {
                     if (strokeBufferRef.current.length > 0 && socket) {
@@ -1709,13 +1709,19 @@
                         });
                         strokeBufferRef.current = [];
                     }
-                    animationFrameId = requestAnimationFrame(sendStrokes);
                 };
 
-                animationFrameId = requestAnimationFrame(sendStrokes);
+                // Відправляємо кожні 150ms (зменшення трафіку в ~9 разів)
+                intervalId = setInterval(sendStrokes, 150);
 
                 return () => {
-                    cancelAnimationFrame(animationFrameId);
+                    clearInterval(intervalId);
+                    // Відправляємо залишки при unmount
+                    if (strokeBufferRef.current.length > 0 && socket) {
+                        socket.emit('unicorn_drawing_strokes', {
+                            strokes: strokeBufferRef.current
+                        });
+                    }
                 };
             }, [gameState, socket]);
 
@@ -2018,8 +2024,8 @@
                     ctx.beginPath();
                     ctx.moveTo(x, y);
 
-                    // ВИПРАВЛЕНО: Відправляємо колір та playerId у штрихах!
-                    const stroke = { type: 'start', x: x / canvas.width, y: y / canvas.height, color: myColor, playerId };
+                    // ВИПРАВЛЕНО: Відправляємо округлені координати для економії трафіку
+                    const stroke = { type: 'start', x: Math.round((x / canvas.width) * 1000), y: Math.round((y / canvas.height) * 1000), color: myColor, playerId };
                     strokeBufferRef.current.push(stroke);
                 };
 
@@ -2047,8 +2053,8 @@
                     lastXRef.current = x;
                     lastYRef.current = y;
 
-                    // ВИПРАВЛЕНО: Відправляємо колір та playerId у штрихах!
-                    const stroke = { type: 'draw', x: x / canvas.width, y: y / canvas.height, color: myColor, playerId };
+                    // ВИПРАВЛЕНО: Відправляємо округлені координати для економії трафіку
+                    const stroke = { type: 'draw', x: Math.round((x / canvas.width) * 1000), y: Math.round((y / canvas.height) * 1000), color: myColor, playerId };
                     strokeBufferRef.current.push(stroke);
 
                     // Оновлюємо custom cursor
@@ -2992,9 +2998,9 @@
             
             const sizes = [3, 6, 10, 15, 20];
             
-            // Оптимізована синхронізація малювання
+            // Оптимізована синхронізація малювання (батчинг з інтервалом)
             useEffect(() => {
-                let animationFrameId;
+                let intervalId;
 
                 const sendStrokes = () => {
                     if (strokeBufferRef.current.length > 0 && socket) {
@@ -3003,13 +3009,19 @@
                         });
                         strokeBufferRef.current = [];
                     }
-                    animationFrameId = requestAnimationFrame(sendStrokes);
                 };
 
-                animationFrameId = requestAnimationFrame(sendStrokes);
+                // Відправляємо кожні 150ms замість 60 разів/сек (зменшення трафіку в ~9 разів)
+                intervalId = setInterval(sendStrokes, 150);
 
                 return () => {
-                    cancelAnimationFrame(animationFrameId);
+                    clearInterval(intervalId);
+                    // Відправляємо залишки при unmount
+                    if (strokeBufferRef.current.length > 0 && socket) {
+                        socket.emit('drawing_update', {
+                            strokes: strokeBufferRef.current
+                        });
+                    }
                 };
             }, [socket]);
 
@@ -3164,8 +3176,8 @@
                 }
 
                 const strokeData = {
-                    x: x / 640,  // Нормалізація до діапазону 0-1
-                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    x: Math.round((x / 640) * 1000),  // Округлений integer 0-1000 (економія трафіку)
+                    y: Math.round((y / 480) * 1000),  // Округлений integer 0-1000 (економія трафіку)
                     color: currentColor,
                     size: currentSize,
                     tool: currentTool,
@@ -3209,10 +3221,10 @@
                 lastXRef.current = x;
                 lastYRef.current = y;
 
-                // ВИПРАВЛЕНО: Відправляємо нормалізовані координати (0-1)
+                // ВИПРАВЛЕНО: Відправляємо округлені координати
                 const strokeData = {
-                    x: x / 640,  // Нормалізація до діапазону 0-1
-                    y: y / 480,  // Нормалізація до діапазону 0-1
+                    x: Math.round((x / 640) * 1000),  // Округлений integer 0-1000 (економія трафіку)
+                    y: Math.round((y / 480) * 1000),  // Округлений integer 0-1000 (економія трафіку)
                     color: currentColor,
                     size: currentSize,
                     tool: currentTool,
@@ -3954,8 +3966,8 @@
                         lastXRef.current = null;
                         lastYRef.current = null;
                     } else if (stroke.type === 'start') {
-                        const x = stroke.x * canvasSize.width;
-                        const y = stroke.y * canvasSize.height;
+                        const x = (stroke.x / 1000) * canvasSize.width;  // Декодуємо з integer 0-1000
+                        const y = (stroke.y / 1000) * canvasSize.height;  // Декодуємо з integer 0-1000
 
                         ctx.globalCompositeOperation = 'source-over';
                         if (stroke.tool === 'eraser') {
@@ -3975,8 +3987,8 @@
                         lastYRef.current = y;
                         isDrawingPathRef.current = true;
                     } else if (stroke.type === 'draw' && isDrawingPathRef.current && lastXRef.current !== null) {
-                        const x = stroke.x * canvasSize.width;
-                        const y = stroke.y * canvasSize.height;
+                        const x = (stroke.x / 1000) * canvasSize.width;  // Декодуємо з integer 0-1000
+                        const y = (stroke.y / 1000) * canvasSize.height;  // Декодуємо з integer 0-1000
 
                         ctx.globalCompositeOperation = 'source-over';
                         if (stroke.tool === 'eraser') {
