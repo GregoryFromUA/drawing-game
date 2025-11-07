@@ -2702,14 +2702,39 @@
                                                 const player = roundData?.players?.find(p => p.id === pid);
                                                 const details = roundResults?.scoreDetails?.[pid];
 
+                                                // DEBUG: Логуємо дані для відладки
+                                                if (details) {
+                                                    console.log(`Player ${player?.name}:`, {
+                                                        guessing: details.guessing,
+                                                        penalty: details.penalty,
+                                                        total: details.total
+                                                    });
+                                                }
+
                                                 // Формуємо формулу: 5+6+4-3=12
                                                 let formula = '';
                                                 if (details) {
-                                                    const parts = [...details.guessing];
-                                                    if (details.penalty !== 0) {
-                                                        parts.push(details.penalty);
+                                                    const parts = [];
+
+                                                    // Додаємо очки за відгадування
+                                                    if (Array.isArray(details.guessing)) {
+                                                        parts.push(...details.guessing.map(p => Number(p)));
                                                     }
-                                                    formula = parts.join('+').replace('+-', '') + '=' + details.total;
+
+                                                    // Додаємо штраф якщо є
+                                                    if (details.penalty !== 0) {
+                                                        parts.push(Number(details.penalty));
+                                                    }
+
+                                                    // Формуємо строку: обробляємо кожне число окремо
+                                                    if (parts.length > 0) {
+                                                        formula = parts.map((num, idx) => {
+                                                            if (idx === 0) return String(num);
+                                                            return num >= 0 ? `+${num}` : String(num);
+                                                        }).join('') + `=${details.total}`;
+                                                    } else {
+                                                        formula = `${details.total}`;
+                                                    }
                                                 } else {
                                                     formula = (roundResults?.roundScores[pid] || 0).toString();
                                                 }
