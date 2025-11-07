@@ -1,4 +1,4 @@
-/* Lobby styles */
+/* Меню та лобі стилі */
 .lobby-container {
     display: flex;
     align-items: center;
@@ -92,6 +92,13 @@
     white-space: nowrap;
 }
 
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(-50%) translateX(-10px); }
+    20% { opacity: 1; transform: translateY(-50%) translateX(0); }
+    80% { opacity: 1; transform: translateY(-50%) translateX(0); }
+    100% { opacity: 0; transform: translateY(-50%) translateX(10px); }
+}
+
 .code-hint {
     font-size: 0.8em;
     color: #888;
@@ -176,75 +183,95 @@
     padding: 4px 10px;
     border-radius: 15px;
     font-size: 0.85em;
+    background: white;
 }
 
-.player-status.ready {
+.ready-badge {
     background: #4caf50;
     color: white;
 }
 
-.player-status.waiting {
-    background: #ff9800;
-    color: white;
-}
-
-.player-status.disconnected {
-    background: #f44336;
-    color: white;
+.lobby-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    margin: 15px 0;
 }
 
 .input-group label {
+    display: block;
+    margin-bottom: 8px;
     font-weight: 600;
-    color: #667eea;
+    color: #555;
     font-size: 0.9em;
 }
 
-.input-group input, .input-group select {
+.input-group input {
+    width: 100%;
     padding: 12px;
     border: 2px solid #e0e0e0;
     border-radius: 8px;
     font-size: 1em;
-    transition: all 0.3s;
+    transition: border-color 0.3s;
 }
 
-.input-group input:focus, .input-group select:focus {
+.input-group input:focus {
     outline: none;
     border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.error {
-    color: #f44336;
-    font-size: 0.9em;
-    text-align: center;
-    padding: 10px;
-    background: #ffebee;
+.btn {
+    padding: 12px 25px;
+    border: none;
     border-radius: 8px;
-    margin-top: 10px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    flex: 1;
 }
 
-.success {
-    color: #4caf50;
-    font-size: 0.9em;
-    text-align: center;
-    padding: 10px;
-    background: #e8f5e9;
-    border-radius: 8px;
-    margin-top: 10px;
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
-@media (max-width: 768px) {
-    .lobby-content {
-        grid-template-columns: 1fr;
-    }
-
-    .lobby h1 {
-        font-size: 1.5em;
-    }
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
 }
+
+.btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-secondary:disabled {
+    background: #e0e0e0;
+    color: #999;
+    cursor: not-allowed !important;
+}
+
+.btn-success {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(76, 175, 80, 0.4);
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
