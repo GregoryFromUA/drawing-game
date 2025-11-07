@@ -580,9 +580,25 @@
         }
 
         .custom-cursor.eraser-cursor {
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            border: 2px solid rgba(244, 67, 54, 0.6);
-            opacity: 0.8;
+            border-radius: 0 !important;
+            background-color: transparent !important;
+            border: none !important;
+            opacity: 1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f44336' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 20H7L2.5 15.5C1.83 14.83 1.83 13.67 2.5 13L13 2.5C13.67 1.83 14.83 1.83 15.5 2.5L21.5 8.5C22.17 9.17 22.17 10.33 21.5 11L17 15.5'/%3E%3Cpath d='M13 2.5L21.5 11'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .custom-cursor.fill-cursor {
+            border-radius: 0 !important;
+            background-color: transparent !important;
+            border: none !important;
+            opacity: 1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234CAF50' stroke='%23388E3C' stroke-width='1.5'%3E%3Cpath d='M12 2 L10 8 L4 10 L10 12 L12 18 L14 12 L20 10 L14 8 Z M12 10 C10.9 10 10 10.9 10 12 L10 18 L14 18 L14 12 C14 10.9 13.1 10 12 10 Z M8 20 L16 20 C17.1 20 18 20.9 18 22 L6 22 C6 20.9 6.9 20 8 20 Z'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
         }
 
         /* Скрываем стандартный курсор на главном canvas */
@@ -1573,7 +1589,11 @@
                         continue;
                     }
 
-                    if (stroke.type === 'start') {
+                    if (stroke.type === 'fill') {
+                        // Обработка заливки всего canvas
+                        ctx.fillStyle = stroke.color || '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    } else if (stroke.type === 'start') {
                         ctx.beginPath();
                         ctx.strokeStyle = stroke.color || '#000000';
                         ctx.fillStyle = stroke.color || '#000000';
@@ -2944,9 +2964,10 @@
             const canvasBoundsRef = useRef(null);
             
             const colors = [
-                '#000000', '#FF0000', '#00FF00', '#0000FF', 
-                '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', 
-                '#800080', '#A52A2A', '#FFC0CB', '#808080'
+                '#000000', '#FF0000', '#00FF00', '#0000FF',
+                '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500',
+                '#800080', '#A52A2A', '#FFC0CB', '#808080',
+                '#FF6600', '#006400', '#8B4513', '#20B2AA'
             ];
             
             const sizes = [2, 4, 7, 11, 16];
@@ -3009,19 +3030,26 @@
                 customCursorRef.current.style.top = `${y}px`;
 
                 // Обновляем размер и цвет
-                const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
-                customCursorRef.current.style.width = `${size}px`;
-                customCursorRef.current.style.height = `${size}px`;
-                customCursorRef.current.style.backgroundColor =
-                    currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+                if (currentTool === 'fill') {
+                    customCursorRef.current.style.width = `32px`;
+                    customCursorRef.current.style.height = `32px`;
+                    customCursorRef.current.style.backgroundColor = 'transparent';
+                } else {
+                    const size = currentTool === 'eraser' ? currentSize * 2 : currentSize;
+                    customCursorRef.current.style.width = `${size}px`;
+                    customCursorRef.current.style.height = `${size}px`;
+                    customCursorRef.current.style.backgroundColor =
+                        currentTool === 'eraser' ? 'rgba(255, 255, 255, 0.8)' : currentColor;
+                }
 
                 // Обновляем класс
+                customCursorRef.current.classList.remove('eraser-cursor', 'pen-cursor', 'fill-cursor');
                 if (currentTool === 'eraser') {
                     customCursorRef.current.classList.add('eraser-cursor');
-                    customCursorRef.current.classList.remove('pen-cursor');
+                } else if (currentTool === 'fill') {
+                    customCursorRef.current.classList.add('fill-cursor');
                 } else {
                     customCursorRef.current.classList.add('pen-cursor');
-                    customCursorRef.current.classList.remove('eraser-cursor');
                 }
             }, [currentColor, currentSize, currentTool]);
             
@@ -3070,6 +3098,25 @@
             const startDrawing = (e) => {
                 if (isDrawingLocked || !ctxRef.current || !canvasBoundsRef.current) return;
 
+                const ctx = ctxRef.current; // Используем кешированный контекст
+
+                // Обработка инструмента заливки
+                if (currentTool === 'fill') {
+                    // Закрашиваем весь canvas выбранным цветом
+                    ctx.fillStyle = currentColor;
+                    ctx.fillRect(0, 0, 640, 480);
+
+                    // Отправляем заливку как одно действие
+                    const strokeData = {
+                        color: currentColor,
+                        tool: 'fill',
+                        type: 'fill'
+                    };
+
+                    strokeBufferRef.current.push(strokeData);
+                    return; // Не запускаем обычное рисование
+                }
+
                 setIsDrawing(true);
                 const rect = canvasBoundsRef.current; // Используем кешированное значение
 
@@ -3079,8 +3126,6 @@
 
                 lastXRef.current = x;
                 lastYRef.current = y;
-
-                const ctx = ctxRef.current; // Используем кешированный контекст
 
                 // Малювання початкової точки
                 if (currentTool === 'eraser') {
@@ -3409,6 +3454,13 @@
                                                 >
                                                     🧹
                                                 </button>
+                                                <button
+                                                    className={`tool-btn ${currentTool === 'fill' ? 'active' : ''}`}
+                                                    onClick={() => setCurrentTool('fill')}
+                                                    disabled={isDrawingLocked}
+                                                >
+                                                    🪣
+                                                </button>
                                             </div>
                                         </div>
                                         
@@ -3435,7 +3487,7 @@
                                                         key={size}
                                                         className={`size-btn ${currentSize === size ? 'active' : ''}`}
                                                         onClick={() => setCurrentSize(size)}
-                                                        disabled={isDrawingLocked}
+                                                        disabled={isDrawingLocked || currentTool === 'fill'}
                                                     >
                                                         <div
                                                             className="size-dot"
@@ -3855,7 +3907,14 @@
                 for (let i = lastDrawnIndexRef.current; i < drawing.length; i++) {
                     const stroke = drawing[i];
 
-                    if (stroke.type === 'start') {
+                    if (stroke.type === 'fill') {
+                        // Обработка заливки всего canvas
+                        ctx.fillStyle = stroke.color;
+                        ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+                        isDrawingPathRef.current = false;
+                        lastXRef.current = null;
+                        lastYRef.current = null;
+                    } else if (stroke.type === 'start') {
                         const x = stroke.x * canvasSize.width;
                         const y = stroke.y * canvasSize.height;
 
