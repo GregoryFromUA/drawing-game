@@ -2937,7 +2937,7 @@
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
             const [currentColor, setCurrentColor] = useState('#000000');
-            const [currentSize, setCurrentSize] = useState(5);
+            const [currentSize, setCurrentSize] = useState(10);
             const [currentTool, setCurrentTool] = useState('pen');
             const [showScoreRules, setShowScoreRules] = useState(false);
 
@@ -2971,7 +2971,7 @@
                 '#FF6600', '#006400', '#8B4513', '#20B2AA'
             ];
             
-            const sizes = [2, 4, 7, 11, 16];
+            const sizes = [3, 6, 10, 15, 20];
             
             // Оптимізована синхронізація малювання
             useEffect(() => {
@@ -3490,7 +3490,6 @@
                                         </div>
                                         
                                         <div className="tool-group">
-                                            <label>Розмір: <span style={{ color: '#667eea', fontWeight: 'bold' }}>{currentSize}px</span></label>
                                             <div className="size-selector">
                                                 {sizes.map(size => (
                                                     <button
