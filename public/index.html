@@ -1307,13 +1307,8 @@
                     setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
                     setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
                     setAllCorrectAssignments({}); // НОВЕ: Очищаємо всі правильні відповіді
-                    setGuessProgress({}); // НОВЕ: Очищаємо прогрес здогадок для нового раунду
-                    setRoundStartTime(null); // НОВЕ: Спочатку очищаємо час старту
+                    // НЕ очищаємо guessProgress - він оновиться автоматично через guess_progress_update
                     setIsDrawingLocked(false);
-                    // Встановлюємо новий roundStartTime після очищення
-                    if (data?.roundStartTime) {
-                        setTimeout(() => setRoundStartTime(data.roundStartTime), 0);
-                    }
                 });
                 
                 newSocket.on('drawing_updated', ({ playerId, strokes }) => {
@@ -2942,7 +2937,7 @@
             const canvasRef = useRef(null);
             const [isDrawing, setIsDrawing] = useState(false);
             const [currentColor, setCurrentColor] = useState('#000000');
-            const [currentSize, setCurrentSize] = useState(10);
+            const [currentSize, setCurrentSize] = useState(6);
             const [currentTool, setCurrentTool] = useState('pen');
             const [showScoreRules, setShowScoreRules] = useState(false);
 
@@ -3002,20 +2997,24 @@
             // НОВЕ: Синхронізація roundStartTime з сервером
             useEffect(() => {
                 if (roundData?.roundStartTime) {
+                    console.log('Setting roundStartTime:', roundData.roundStartTime);
                     setRoundStartTime(roundData.roundStartTime);
                 }
-            }, [roundData?.roundStartTime]);
+            }, [roundData]);
 
             // НОВЕ: Countdown таймер раунду (синхронізований з сервером)
             useEffect(() => {
                 if (!roundStartTime) {
+                    console.log('Timer: no roundStartTime, setting to 120');
                     setRoundTimer(120);
                     return;
                 }
 
+                console.log('Timer: starting countdown with roundStartTime:', roundStartTime);
                 const updateTimer = () => {
                     const elapsed = Math.floor((Date.now() - roundStartTime) / 1000);
                     const remaining = Math.max(0, 120 - elapsed);
+                    console.log('Timer update - elapsed:', elapsed, 'remaining:', remaining);
                     setRoundTimer(remaining);
                 };
 
@@ -3025,7 +3024,10 @@
                 // Оновлюємо кожну секунду
                 const intervalId = setInterval(updateTimer, 1000);
 
-                return () => clearInterval(intervalId);
+                return () => {
+                    console.log('Timer: cleanup');
+                    clearInterval(intervalId);
+                };
             }, [roundStartTime]);
 
             // Оптимізоване оновлення cursor через пряме DOM маніпулювання
