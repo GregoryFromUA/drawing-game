@@ -102,6 +102,264 @@ function App() {
     const ctxRef = useRef(null);
     const lastDrawnIndexRef = useRef(0); // Індекс останнього намальованого штриху
 
+
+    // Socket.IO ініціалізація та обробники
+    // Ініціалізація Socket.io
+    useEffect(() => {
+        const newSocket = io(SERVER_URL);
+        
+        newSocket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        newSocket.on('room_created', ({ roomCode, playerId, state }) => {
+            setRoomCode(roomCode);
+            setPlayerId(playerId);
+            setRoomData(state);
+            setGameState('lobby');
+            setIsHost(true);
+            localStorage.setItem('gameSession', JSON.stringify({ roomCode, playerId, playerName }));
+        });
+        
+        newSocket.on('joined_room', ({ roomCode, playerId, state }) => {
+            setRoomCode(roomCode);
+            setPlayerId(playerId);
+            setRoomData(state);
+            setGameState('lobby');
+            setIsHost(state.hostId === playerId);
+            // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+            if (state?.answersRevealed !== undefined) {
+                setShowCorrectAnswers(state.answersRevealed);
+            }
+            localStorage.setItem('gameSession', JSON.stringify({ roomCode, playerId, playerName }));
+        });
+        
+        newSocket.on('player_joined', (state) => {
+            setRoomData(state);
+            // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+            if (state?.answersRevealed !== undefined) {
+                setShowCorrectAnswers(state.answersRevealed);
+            }
+        });
+
+        newSocket.on('player_ready_changed', (state) => {
+            setRoomData(state);
+            // ВИПРАВЛЕНО: Синхронізуємо показ правильних відповідей
+            if (state?.answersRevealed !== undefined) {
+                setShowCorrectAnswers(state.answersRevealed);
+            }
+        });
+        
+        newSocket.on('round_started', (data) => {
+            setRoundData(data);
+            setGameState('playing');
+            setDrawings({});
+            setMyGuesses({});
+            setUsedNumbers(new Set());
+            setMyGuessResults({}); // НОВЕ: Очищаємо результати здогадок
+            setShowCorrectAnswers(false); // НОВЕ: Скидаємо показ правильних відповідей
+            setAllCorrectAssignments({}); // НОВЕ: Очищаємо всі правильні відповіді
+            // НЕ очищаємо guessProgress - він оновиться автоматично через guess_progress_update
+            setIsDrawingLocked(false);
+        });
+        
+        newSocket.on('drawing_updated', ({ playerId, strokes }) => {
+            setDrawings(prev => ({
+                ...prev,
+                [playerId]: [...(prev[playerId] || []), ...strokes]
+            }));
+        });
+        
+        newSocket.on('canvas_cleared', ({ playerId }) => {
+            setDrawings(prev => ({
+                ...prev,
+                [playerId]: []
+            }));
+        });
+        
+        newSocket.on('drawing_locked', ({ playerId: lockedPlayerId }) => {
+            if (lockedPlayerId === playerId) {
+                setIsDrawingLocked(true);
+            }
+        });
+
+        newSocket.on('guess_accepted', ({ targetId, number, letter, correct, targetAssignment }) => {
+            console.log('✅ guess_accepted:', { targetId, number, letter, correct, targetAssignment }); // DEBUG
+            setMyGuesses(prev => ({ ...prev, [targetId]: { letter, number } }));
+            setUsedNumbers(prev => new Set([...prev, `${letter}${number}`]));
+
+            // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
+            // Вместо этого сохраняем правильный ответ в myGuessResults
+            setMyGuessResults(prev => {
+                const newResults = {
+                    ...prev,
+                    [targetId]: {
+                        letter,
+                        number,
+                        correct,
+                        // Сохраняем правильное assignment от сервера
+                        targetAssignment: targetAssignment
+                    }
+                };
+                console.log('📊 myGuessResults updated:', newResults);
+                return newResults;
+            });
+        });
+
+        // НОВЕ: Обробник показу правильних відповідей
+        newSocket.on('answers_revealed', ({ state, assignments }) => {
+            console.log('📢 Answers revealed by host', state, assignments);
+            if (state?.answersRevealed) {
+                setShowCorrectAnswers(true);
+            }
+            if (assignments) {
+                setAllCorrectAssignments(assignments);
+                console.log('📋 All correct assignments:', assignments);
+            }
+        });
+
+        // НОВЕ: Обробник оновлення прогресу здогадок (тільки для хоста)
+        newSocket.on('guess_progress_update', ({ progress }) => {
+            setGuessProgress(progress);
+            console.log('📊 Guess progress updated:', progress);
+        });
+
+        newSocket.on('round_ended', (results) => {
+            setRoundResults(results);
+            setGameState('round_end');
+        });
+        
+        newSocket.on('game_ended', (results) => {
+            setFinalResults(results);
+            setGameState('game_end');
+        });
+        
+        newSocket.on('game_reset', (state) => {
+            setRoomData(state);
+            setGameState('lobby');
+            setRoundData(null);
+            setRoundResults(null);
+            setFinalResults(null);
+            // ВИПРАВЛЕНО: Очищаємо весь state Unicorn Canvas
+            setAvailableThemes([]);
+            setSelectedThemes([]);
+            setPlayerCard(null);
+            setCurrentTheme(null);
+            setSharedDrawing([]);
+            setTurnOrder([]);
+            setCurrentTurnIndex(0);
+            setCurrentDrawingRound(1);
+            setUnicornRoundResults(null);
+            setFakeArtistGuess('');
+            setMyVoteForFake(null);
+            setFakeGuessInput('');
+            setMyVoteForAnswer(null);
+            setIsDrawing(false);
+            setCurrentStroke([]);
+            // Очищаємо буфер штрихів
+            if (strokeBufferRef.current) {
+                strokeBufferRef.current = [];
+            }
+        });
+        
+        newSocket.on('error', ({ message }) => {
+            setError(message);
+        });
+        
+        newSocket.on('player_disconnected', ({ playerId: disconnectedId, state }) => {
+            setRoomData(state);
+        });
+
+        // ========== UNICORN CANVAS EVENTS ==========
+
+        newSocket.on('theme_selection_started', ({ availableThemes, state }) => {
+            console.log('Theme selection started', availableThemes);
+            setUnicornMode(true);
+            setAvailableThemes(availableThemes);
+            setGameState('theme_selection');
+            setRoomData(state);
+            setThemeSelectionTimeLeft(20); // Скидаємо таймер
+        });
+
+        newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, state }) => {
+            console.log('Unicorn round started', { round, theme, card });
+            setCurrentTheme(theme);
+            setPlayerCard(card);
+            setTurnOrder(turnOrder);
+            setCurrentTurnIndex(currentTurnIndex);
+            setCurrentDrawingRound(currentDrawingRound);
+            setSharedDrawing([]);
+            // ВИПРАВЛЕНО: Скидаємо індекс при новому раунді
+            lastDrawnIndexRef.current = 0;
+            // ВИПРАВЛЕНО: НЕ очищаємо тут - useEffect зробить це при реініціалізації
+            setGameState('unicorn_drawing');
+            setRoomData(state);
+        });
+
+        newSocket.on('drawing_stroke_added', ({ stroke, sharedDrawing }) => {
+            setSharedDrawing(sharedDrawing);
+        });
+
+        // ВИПРАВЛЕНО: Батчинг штрихів (оптимізація)
+        newSocket.on('drawing_strokes_added', ({ strokes, sharedDrawing }) => {
+            setSharedDrawing(sharedDrawing);
+        });
+
+        newSocket.on('next_turn', ({ currentTurnIndex, currentDrawingRound, currentPlayerId, state }) => {
+            setCurrentTurnIndex(currentTurnIndex);
+            setCurrentDrawingRound(currentDrawingRound);
+            setRoomData(state);
+        });
+
+        newSocket.on('voting_for_fake_started', ({ state }) => {
+            console.log('Voting for fake started');
+            setGameState('voting_fake');
+            setRoomData(state);
+        });
+
+        newSocket.on('fake_guessing_started', ({ fakeArtistId, state }) => {
+            console.log('Fake guessing started', fakeArtistId);
+            setGameState('fake_guessing');
+            setRoomData(state);
+        });
+
+        newSocket.on('voting_answer_started', ({ fakeGuess, word, state }) => {
+            console.log('Voting answer started', { fakeGuess, word });
+            setFakeArtistGuess(fakeGuess);
+            setGameState('voting_answer');
+            setRoomData(state);
+        });
+
+        newSocket.on('round_ended_unicorn', ({ results, state }) => {
+            console.log('Unicorn round ended', results);
+            setUnicornRoundResults(results);
+            setGameState('unicorn_round_end');
+            setRoomData(state);
+        });
+
+        // ========== END UNICORN CANVAS EVENTS ==========
+
+        setSocket(newSocket);
+        
+        // Спроба відновити сесію
+        const savedSession = localStorage.getItem('gameSession');
+        if (savedSession) {
+            const { roomCode: savedRoom, playerId: savedId, playerName: savedName } = JSON.parse(savedSession);
+            if (savedRoom && savedId && savedName) {
+                setPlayerName(savedName);
+                newSocket.emit('join_room', { 
+                    roomCode: savedRoom, 
+                    playerName: savedName, 
+                    playerId: savedId 
+                });
+            }
+        }
+        
+        return () => {
+            newSocket.close();
+        };
+    }, []);
+
     // State для голосувань в Unicorn Canvas
     const [myVoteForFake, setMyVoteForFake] = useState(null);
     const [fakeGuessInput, setFakeGuessInput] = useState('');
