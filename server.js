@@ -1598,6 +1598,7 @@ io.on('connection', (socket) => {
       room.readyPlayers.clear();
       room.usedThemes = []; // Скидаємо використані теми
       room.selectedThemesPool = [];
+      room.mode = undefined; // FIXED: Скидаємо режим щоб можна було обрати будь-який
 
       // ВИПРАВЛЕНО: Скидаємо ready статус для всіх гравців
       for (let [playerId] of room.players) {
