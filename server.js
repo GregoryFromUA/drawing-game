@@ -1425,12 +1425,12 @@ io.on('connection', (socket) => {
   socket.on('drawing_update', ({ strokes }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
-    
-    // НОВЕ: Валідація stroke даних
+
+    // НОВЕ: Валідація stroke даних (координати тепер 0-1000 integers)
     const validatedStrokes = strokes.filter(stroke => {
       if (stroke.type === 'start' || stroke.type === 'draw') {
-        return stroke.x >= 0 && stroke.x <= 1 &&
-               stroke.y >= 0 && stroke.y <= 1 &&
+        return stroke.x >= 0 && stroke.x <= 1000 &&  // FIXED: 0-1000 замість 0-1
+               stroke.y >= 0 && stroke.y <= 1000 &&  // FIXED: 0-1000 замість 0-1
                stroke.size > 0 && stroke.size <= 50 &&
                (stroke.tool === 'pen' || stroke.tool === 'eraser');
       }
