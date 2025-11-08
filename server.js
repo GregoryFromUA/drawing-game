@@ -1591,20 +1591,37 @@ io.on('connection', (socket) => {
 
     // ВИПРАВЛЕНО: Підтримка обох режимів гри
     if (room.mode === 'unicorn_canvas') {
-      // Для Unicorn Canvas (FakeArtistGame)
-      room.currentRound = 0;
-      room.scores.clear();
-      room.state = 'lobby';
-      room.readyPlayers.clear();
-      room.usedThemes = []; // Скидаємо використані теми
-      room.selectedThemesPool = [];
-      room.mode = undefined; // FIXED: Скидаємо режим щоб можна було обрати будь-який
-
-      // ВИПРАВЛЕНО: Скидаємо ready статус для всіх гравців
-      for (let [playerId] of room.players) {
-        room.scores.set(playerId, 0);
-        room.setPlayerReady(playerId, false);
+      // FIXED: Конвертуємо FakeArtistGame назад у GameRoom
+      const playersData = [];
+      for (let [playerId, player] of room.players) {
+        playersData.push({
+          id: playerId,
+          name: player.name,
+          socketId: player.socketId,
+          connected: player.connected
+        });
       }
+
+      const hostId = room.hostId;
+      const roomCode = room.code;
+
+      // Очищаємо стару FakeArtistGame
+      room.cleanup();
+
+      // Створюємо новий GameRoom
+      const newRoom = new GameRoom(roomCode, hostId);
+
+      // Копіюємо гравців
+      for (let playerData of playersData) {
+        newRoom.addPlayer(playerData.id, playerData.name, playerData.socketId);
+      }
+
+      // Замінюємо кімнату
+      rooms.set(roomCode, newRoom);
+
+      console.log(`Room ${roomCode} converted back to GameRoom (lobby)`);
+
+      io.to(currentRoomCode).emit('game_reset', newRoom.getState());
     } else {
       // Для Doodle Prophet (GameRoom)
       room.currentRound = 0;
@@ -1617,9 +1634,9 @@ io.on('connection', (socket) => {
         room.scores.set(playerId, 0);
         room.setPlayerReady(playerId, false);
       }
-    }
 
-    io.to(currentRoomCode).emit('game_reset', room.getState());
+      io.to(currentRoomCode).emit('game_reset', room.getState());
+    }
   });
 
   // ========== UNICORN CANVAS (FAKE ARTIST) EVENTS ==========
