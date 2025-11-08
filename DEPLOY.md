@@ -65,7 +65,33 @@ Render.com автоматично виявить зміни і запустит�
 
 ## ⚠️ Можливі проблеми та рішення:
 
-### Проблема 1: Build fails
+### Проблема 1: "install: missing file operand"
+```
+==> Running build command 'install && npm run build'...
+install: missing file operand
+```
+
+**Причина:** Build Command не містить `npm` перед `install`
+
+**Рішення:**
+
+**Варіант A: Використати render.yaml (рекомендовано)**
+1. Render Dashboard → твій сервіс → Settings → (вниз) → **Delete Web Service**
+2. Render Dashboard → **New** → **Web Service**
+3. Підключи GitHub репозиторій
+4. Render **автоматично виявить render.yaml**
+5. Натисни **Create Web Service**
+
+**Варіант B: Виправити вручну**
+1. Render Dashboard → твій сервіс → **Settings**
+2. Розділ **Build & Deploy**
+3. Поле **Build Command** → заміни `install && npm run build` на:
+   ```
+   npm install && npm run build
+   ```
+4. Натисни **Save Changes**
+
+### Проблема 2: Build fails
 ```
 Error: Build failed
 ```
