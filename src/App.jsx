@@ -164,7 +164,6 @@ function App() {
         });
         
         newSocket.on('drawing_updated', ({ playerId, strokes }) => {
-            console.log('🎨 drawing_updated received:', { playerId, strokesCount: strokes.length });
             setDrawings(prev => ({
                 ...prev,
                 [playerId]: [...(prev[playerId] || []), ...strokes]
@@ -185,44 +184,36 @@ function App() {
         });
 
         newSocket.on('guess_accepted', ({ targetId, number, letter, correct, targetAssignment }) => {
-            console.log('✅ guess_accepted:', { targetId, number, letter, correct, targetAssignment }); // DEBUG
             setMyGuesses(prev => ({ ...prev, [targetId]: { letter, number } }));
             setUsedNumbers(prev => new Set([...prev, `${letter}${number}`]));
 
             // НЕ обновляем wordAssignments - оставляем выбор пользователя для визуальной подсказки
             // Вместо этого сохраняем правильный ответ в myGuessResults
-            setMyGuessResults(prev => {
-                const newResults = {
-                    ...prev,
-                    [targetId]: {
-                        letter,
-                        number,
-                        correct,
-                        // Сохраняем правильное assignment от сервера
-                        targetAssignment: targetAssignment
-                    }
-                };
-                console.log('📊 myGuessResults updated:', newResults);
-                return newResults;
-            });
+            setMyGuessResults(prev => ({
+                ...prev,
+                [targetId]: {
+                    letter,
+                    number,
+                    correct,
+                    // Сохраняем правильное assignment от сервера
+                    targetAssignment: targetAssignment
+                }
+            }));
         });
 
         // НОВЕ: Обробник показу правильних відповідей
         newSocket.on('answers_revealed', ({ state, assignments }) => {
-            console.log('📢 Answers revealed by host', state, assignments);
             if (state?.answersRevealed) {
                 setShowCorrectAnswers(true);
             }
             if (assignments) {
                 setAllCorrectAssignments(assignments);
-                console.log('📋 All correct assignments:', assignments);
             }
         });
 
         // НОВЕ: Обробник оновлення прогресу здогадок (тільки для хоста)
         newSocket.on('guess_progress_update', ({ progress }) => {
             setGuessProgress(progress);
-            console.log('📊 Guess progress updated:', progress);
         });
 
         newSocket.on('round_ended', (results) => {
