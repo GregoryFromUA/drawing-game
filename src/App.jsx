@@ -6,9 +6,9 @@ import ScoreRulesModal from './components/ScoreRulesModal';
 
 
 // Конфігурація
-const SERVER_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3001' 
-    : 'https://doodle-prophet-unicorn-canvas-cobra.onrender.com';
+const SERVER_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : window.location.origin;  // Автоматично використовує URL де розгорнуто
 
 // Функції для копіювання в буфер обміну
 function copyToClipboard(text, onSuccess) {
