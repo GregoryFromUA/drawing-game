@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: drawing-game
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run server
+    envVars:
+      - key: NODE_VERSION
+        value: 18

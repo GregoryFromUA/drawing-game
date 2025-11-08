@@ -18,7 +18,8 @@ const io = socketIO(server, {
 });
 
 app.use(cors());
-app.use(express.static('public'));
+// Використовуємо dist директорію замість public (Vite build output)
+app.use(express.static('dist'));
 
 // Константи гри
 const ROUNDS_PER_GAME = 4;
@@ -1424,12 +1425,12 @@ io.on('connection', (socket) => {
   socket.on('drawing_update', ({ strokes }) => {
     const room = rooms.get(currentRoomCode);
     if (!room) return;
-    
-    // НОВЕ: Валідація stroke даних
+
+    // НОВЕ: Валідація stroke даних (координати тепер 0-1000 integers)
     const validatedStrokes = strokes.filter(stroke => {
       if (stroke.type === 'start' || stroke.type === 'draw') {
-        return stroke.x >= 0 && stroke.x <= 1 &&
-               stroke.y >= 0 && stroke.y <= 1 &&
+        return stroke.x >= 0 && stroke.x <= 1000 &&  // FIXED: 0-1000 замість 0-1
+               stroke.y >= 0 && stroke.y <= 1000 &&  // FIXED: 0-1000 замість 0-1
                stroke.size > 0 && stroke.size <= 50 &&
                (stroke.tool === 'pen' || stroke.tool === 'eraser');
       }
@@ -1590,19 +1591,37 @@ io.on('connection', (socket) => {
 
     // ВИПРАВЛЕНО: Підтримка обох режимів гри
     if (room.mode === 'unicorn_canvas') {
-      // Для Unicorn Canvas (FakeArtistGame)
-      room.currentRound = 0;
-      room.scores.clear();
-      room.state = 'lobby';
-      room.readyPlayers.clear();
-      room.usedThemes = []; // Скидаємо використані теми
-      room.selectedThemesPool = [];
-
-      // ВИПРАВЛЕНО: Скидаємо ready статус для всіх гравців
-      for (let [playerId] of room.players) {
-        room.scores.set(playerId, 0);
-        room.setPlayerReady(playerId, false);
+      // FIXED: Конвертуємо FakeArtistGame назад у GameRoom
+      const playersData = [];
+      for (let [playerId, player] of room.players) {
+        playersData.push({
+          id: playerId,
+          name: player.name,
+          socketId: player.socketId,
+          connected: player.connected
+        });
       }
+
+      const hostId = room.hostId;
+      const roomCode = room.code;
+
+      // Очищаємо стару FakeArtistGame
+      room.cleanup();
+
+      // Створюємо новий GameRoom
+      const newRoom = new GameRoom(roomCode, hostId);
+
+      // Копіюємо гравців
+      for (let playerData of playersData) {
+        newRoom.addPlayer(playerData.id, playerData.name, playerData.socketId);
+      }
+
+      // Замінюємо кімнату
+      rooms.set(roomCode, newRoom);
+
+      console.log(`Room ${roomCode} converted back to GameRoom (lobby)`);
+
+      io.to(currentRoomCode).emit('game_reset', newRoom.getState());
     } else {
       // Для Doodle Prophet (GameRoom)
       room.currentRound = 0;
@@ -1615,9 +1634,9 @@ io.on('connection', (socket) => {
         room.scores.set(playerId, 0);
         room.setPlayerReady(playerId, false);
       }
-    }
 
-    io.to(currentRoomCode).emit('game_reset', room.getState());
+      io.to(currentRoomCode).emit('game_reset', room.getState());
+    }
   });
 
   // ========== UNICORN CANVAS (FAKE ARTIST) EVENTS ==========
