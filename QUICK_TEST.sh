@@ -1,58 +1,125 @@
 #!/bin/bash
 
-echo "🧪 QUICK TEST SCRIPT FOR DRAWING GAME"
-echo "======================================"
+# Быстрый тест мониторинга с реальным трафиком
+
+echo "🧪 Быстрый тест мониторинга трафика"
+echo "===================================="
 echo ""
 
-# Кольори для виводу
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Останавливаем старые процессы
+pkill -f "node server.js" 2>/dev/null || true
+sleep 1
 
-echo -e "${YELLOW}Step 1: Installing dependencies...${NC}"
-npm install
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ npm install failed!${NC}"
-    exit 1
+# Запускаем сервер
+echo "1️⃣  Запускаю сервер..."
+node server.js > /tmp/traffic_test.log 2>&1 &
+SERVER_PID=$!
+sleep 2
+
+# Тестовый клиент
+echo "2️⃣  Подключаю тестового клиента и симулирую активность..."
+node -e "
+const io = require('socket.io-client');
+
+const client1 = io('http://localhost:3001', { transports: ['websocket'] });
+const client2 = io('http://localhost:3001', { transports: ['websocket'] });
+
+let roomCode = null;
+
+client1.on('connect', () => {
+  console.log('   ✅ Клиент 1 подключён');
+  client1.emit('create_room', { playerName: 'Игрок1', mode: 'unicorn_canvas' });
+});
+
+client1.on('room_created', ({ roomCode: code }) => {
+  roomCode = code;
+  console.log('   ✅ Комната создана:', code);
+  client2.emit('join_room', { roomCode: code, playerName: 'Игрок2' });
+});
+
+client2.on('connect', () => {
+  console.log('   ✅ Клиент 2 подключён');
+});
+
+client2.on('joined_room', () => {
+  console.log('   ✅ Клиент 2 присоединился');
+  console.log('');
+  console.log('3️⃣  Отправляю 100 штрихов...');
+
+  // Отправляем много штрихов
+  for (let i = 0; i < 20; i++) {
+    const strokes = [];
+    for (let j = 0; j < 5; j++) {
+      strokes.push({
+        x: Math.floor(Math.random() * 1000),
+        y: Math.floor(Math.random() * 1000),
+        color: '#FF0000',
+        size: 10,
+        tool: 'pen',
+        type: 'draw'
+      });
+    }
+    client1.emit('unicorn_drawing_strokes', { strokes });
+  }
+
+  console.log('   ✅ Отправлено 100 штрихов');
+  console.log('');
+
+  setTimeout(() => {
+    client1.disconnect();
+    client2.disconnect();
+    process.exit(0);
+  }, 1000);
+});
+
+setTimeout(() => {
+  console.error('⚠️  Timeout!');
+  process.exit(1);
+}, 10000);
+" 2>&1
+
+echo ""
+echo "4️⃣  Проверяю результаты мониторинга..."
+echo ""
+
+# Ждём немного чтобы логи записались
+sleep 1
+
+# Проверяем debug логи
+if grep -q "\[MONITOR\]" /tmp/traffic_test.log; then
+    echo "✅ МОНИТОРИНГ АКТИВЕН!"
+    echo ""
+    echo "Примеры отслеженных событий:"
+    grep "\[MONITOR\]" /tmp/traffic_test.log | head -10
+    echo ""
+
+    # Подсчитываем сообщения
+    MONITOR_COUNT=$(grep -c "\[MONITOR\]" /tmp/traffic_test.log)
+    echo "📊 Всего отслежено сообщений: $MONITOR_COUNT"
+    echo ""
+
+    # Проверяем большие сообщения
+    if grep -q "LARGE MESSAGE" /tmp/traffic_test.log; then
+        echo "⚠️  ВНИМАНИЕ: Обнаружены большие сообщения!"
+        grep "LARGE MESSAGE" /tmp/traffic_test.log
+        echo ""
+        echo "❌ ПРОБЛЕМА НЕ ИСПРАВЛЕНА! Всё ещё отправляются огромные сообщения!"
+    else
+        echo "✅ Больших сообщений не обнаружено (все < 10 KB)"
+        echo "✅ ПРОБЛЕМА ИСПРАВЛЕНА!"
+    fi
+else
+    echo "❌ МОНИТОРИНГ НЕ РАБОТАЕТ!"
+    echo ""
+    echo "Лог сервера:"
+    cat /tmp/traffic_test.log
 fi
-echo -e "${GREEN}✅ Dependencies installed${NC}"
-echo ""
 
-echo -e "${YELLOW}Step 2: Building project...${NC}"
-npm run build
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Build failed!${NC}"
-    exit 1
-fi
-echo -e "${GREEN}✅ Build successful${NC}"
 echo ""
+echo "5️⃣  Останавливаю сервер..."
+kill $SERVER_PID 2>/dev/null || true
+wait $SERVER_PID 2>/dev/null || true
 
-echo -e "${YELLOW}Step 3: Checking dist/ directory...${NC}"
-if [ ! -d "dist" ]; then
-    echo -e "${RED}❌ dist/ directory not found!${NC}"
-    exit 1
-fi
-
-if [ ! -f "dist/index.html" ]; then
-    echo -e "${RED}❌ dist/index.html not found!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ dist/ directory exists with files${NC}"
-ls -lh dist/
+echo "✅ Готово!"
 echo ""
-
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}✅ ALL CHECKS PASSED!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-echo "Now you can start the server:"
-echo -e "${YELLOW}  npm run server${NC}"
-echo ""
-echo "Then open: ${YELLOW}http://localhost:3001${NC}"
-echo ""
-echo "For development mode (with hot reload):"
-echo -e "${YELLOW}  Terminal 1: npm run dev${NC}"
-echo -e "${YELLOW}  Terminal 2: npm run server:dev${NC}"
-echo -e "  Then open: ${YELLOW}http://localhost:3000${NC}"
+echo "📄 Полный лог сервера сохранён в: /tmp/traffic_test.log"

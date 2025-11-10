@@ -31,25 +31,92 @@ const trafficStats = {
   lastLogTime: Date.now()
 };
 
-// Обгортка для io.to().emit() з моніторингом
-function monitoredEmit(io, roomCode, eventName, data) {
-  const dataSize = JSON.stringify(data).length;
+// ВИПРАВЛЕНО: Перехоплення всіх emit для автоматичного моніторингу
+io.use((socket, next) => {
+  // Зберігаємо оригінальний emit
+  const originalEmit = socket.emit;
+  const originalBroadcastEmit = socket.broadcast.emit;
 
-  trafficStats.totalBytesSent += dataSize;
-  trafficStats.messagesSent++;
+  // Заміняємо emit на версію з моніторингом
+  socket.emit = function(eventName, data, ...args) {
+    if (eventName && data && typeof data === 'object') {
+      const dataSize = JSON.stringify(data).length;
+      trafficStats.totalBytesSent += dataSize;
+      trafficStats.messagesSent++;
 
-  if (!trafficStats.byEventType[eventName]) {
-    trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
-  }
-  trafficStats.byEventType[eventName].count++;
-  trafficStats.byEventType[eventName].bytes += dataSize;
+      // DEBUG: показуємо перші кілька подій
+      if (trafficStats.messagesSent <= 5) {
+        console.log(`[MONITOR] socket.emit: ${eventName} (${dataSize} bytes)`);
+      }
 
-  // Логування великих повідомлень (> 10KB)
-  if (dataSize > 10240) {
-    console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB to room ${roomCode}`);
-  }
+      if (!trafficStats.byEventType[eventName]) {
+        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
+      }
+      trafficStats.byEventType[eventName].count++;
+      trafficStats.byEventType[eventName].bytes += dataSize;
 
-  io.to(roomCode).emit(eventName, data);
+      // Логування великих повідомлень (> 10KB)
+      if (dataSize > 10240) {
+        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB`);
+      }
+    }
+    return originalEmit.call(this, eventName, data, ...args);
+  };
+
+  // Заміняємо broadcast.emit
+  socket.broadcast.emit = function(eventName, data, ...args) {
+    if (eventName && data && typeof data === 'object') {
+      const dataSize = JSON.stringify(data).length;
+      trafficStats.totalBytesSent += dataSize;
+      trafficStats.messagesSent++;
+
+      if (!trafficStats.byEventType[eventName]) {
+        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
+      }
+      trafficStats.byEventType[eventName].count++;
+      trafficStats.byEventType[eventName].bytes += dataSize;
+
+      if (dataSize > 10240) {
+        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB`);
+      }
+    }
+    return originalBroadcastEmit.call(this, eventName, data, ...args);
+  };
+
+  next();
+});
+
+// Також перехоплюємо io.to().emit()
+const originalTo = io.to;
+io.to = function(room) {
+  const namespace = originalTo.call(this, room);
+  const originalNamespaceEmit = namespace.emit;
+
+  namespace.emit = function(eventName, data, ...args) {
+    if (eventName && data && typeof data === 'object') {
+      const dataSize = JSON.stringify(data).length;
+      trafficStats.totalBytesSent += dataSize;
+      trafficStats.messagesSent++;
+
+      // DEBUG: показуємо перші кілька подій
+      if (trafficStats.messagesSent <= 5) {
+        console.log(`[MONITOR] io.to(${room}).emit: ${eventName} (${dataSize} bytes)`);
+      }
+
+      if (!trafficStats.byEventType[eventName]) {
+        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
+      }
+      trafficStats.byEventType[eventName].count++;
+      trafficStats.byEventType[eventName].bytes += dataSize;
+
+      if (dataSize > 10240) {
+        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB to room ${room}`);
+      }
+    }
+    return originalNamespaceEmit.call(this, eventName, data, ...args);
+  };
+
+  return namespace;
 }
 
 // Логування статистики кожні 60 секунд
