@@ -21,136 +21,6 @@ app.use(cors());
 // Використовуємо dist директорію замість public (Vite build output)
 app.use(express.static('dist'));
 
-// ==================== TRAFFIC MONITORING ====================
-// Система мониторинга трафика WebSocket
-const trafficStats = {
-  totalBytesSent: 0,
-  messagesSent: 0,
-  byEventType: {},
-  startTime: Date.now(),
-  lastLogTime: Date.now()
-};
-
-// ВИПРАВЛЕНО: Перехоплення всіх emit для автоматичного моніторингу
-io.use((socket, next) => {
-  // Зберігаємо оригінальний emit
-  const originalEmit = socket.emit;
-  const originalBroadcastEmit = socket.broadcast.emit;
-
-  // Заміняємо emit на версію з моніторингом
-  socket.emit = function(eventName, data, ...args) {
-    if (eventName && data && typeof data === 'object') {
-      const dataSize = JSON.stringify(data).length;
-      trafficStats.totalBytesSent += dataSize;
-      trafficStats.messagesSent++;
-
-      // DEBUG: показуємо перші кілька подій
-      if (trafficStats.messagesSent <= 5) {
-        console.log(`[MONITOR] socket.emit: ${eventName} (${dataSize} bytes)`);
-      }
-
-      if (!trafficStats.byEventType[eventName]) {
-        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
-      }
-      trafficStats.byEventType[eventName].count++;
-      trafficStats.byEventType[eventName].bytes += dataSize;
-
-      // Логування великих повідомлень (> 10KB)
-      if (dataSize > 10240) {
-        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB`);
-      }
-    }
-    return originalEmit.call(this, eventName, data, ...args);
-  };
-
-  // Заміняємо broadcast.emit
-  socket.broadcast.emit = function(eventName, data, ...args) {
-    if (eventName && data && typeof data === 'object') {
-      const dataSize = JSON.stringify(data).length;
-      trafficStats.totalBytesSent += dataSize;
-      trafficStats.messagesSent++;
-
-      if (!trafficStats.byEventType[eventName]) {
-        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
-      }
-      trafficStats.byEventType[eventName].count++;
-      trafficStats.byEventType[eventName].bytes += dataSize;
-
-      if (dataSize > 10240) {
-        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB`);
-      }
-    }
-    return originalBroadcastEmit.call(this, eventName, data, ...args);
-  };
-
-  next();
-});
-
-// Також перехоплюємо io.to().emit()
-const originalTo = io.to;
-io.to = function(room) {
-  const namespace = originalTo.call(this, room);
-  const originalNamespaceEmit = namespace.emit;
-
-  namespace.emit = function(eventName, data, ...args) {
-    if (eventName && data && typeof data === 'object') {
-      const dataSize = JSON.stringify(data).length;
-      trafficStats.totalBytesSent += dataSize;
-      trafficStats.messagesSent++;
-
-      // DEBUG: показуємо перші кілька подій
-      if (trafficStats.messagesSent <= 5) {
-        console.log(`[MONITOR] io.to(${room}).emit: ${eventName} (${dataSize} bytes)`);
-      }
-
-      if (!trafficStats.byEventType[eventName]) {
-        trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
-      }
-      trafficStats.byEventType[eventName].count++;
-      trafficStats.byEventType[eventName].bytes += dataSize;
-
-      if (dataSize > 10240) {
-        console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB to room ${room}`);
-      }
-    }
-    return originalNamespaceEmit.call(this, eventName, data, ...args);
-  };
-
-  return namespace;
-}
-
-// Логування статистики кожні 60 секунд
-setInterval(() => {
-  const now = Date.now();
-  const elapsedSec = (now - trafficStats.lastLogTime) / 1000;
-  const totalElapsedMin = (now - trafficStats.startTime) / 60000;
-
-  // ВИПРАВЛЕНО: Показуємо логи завжди (навіть якщо messagesSent === 0)
-  console.log('\n📊 === TRAFFIC STATS (last 60s) ===');
-  console.log(`Total sent: ${(trafficStats.totalBytesSent / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`Messages: ${trafficStats.messagesSent}`);
-  console.log(`Rate: ${(trafficStats.totalBytesSent / elapsedSec / 1024).toFixed(1)} KB/sec`);
-  console.log(`Uptime: ${totalElapsedMin.toFixed(1)} min`);
-
-  if (trafficStats.messagesSent > 0) {
-    // Топ-3 події за трафіком
-    const sorted = Object.entries(trafficStats.byEventType)
-      .sort((a, b) => b[1].bytes - a[1].bytes)
-      .slice(0, 3);
-
-    console.log('\nTop traffic events:');
-    sorted.forEach(([event, stats]) => {
-      console.log(`  ${event}: ${(stats.bytes / 1024).toFixed(1)} KB (${stats.count} msgs)`);
-    });
-  } else {
-    console.log('\nNo messages sent yet (server idle)');
-  }
-  console.log('=====================================\n');
-
-  trafficStats.lastLogTime = now;
-}, 60000);
-// ==================== END TRAFFIC MONITORING ====================
-
 // Константи гри
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
@@ -204,7 +74,6 @@ class GameRoom {
     if (this.usedWordSetIndices.length > 100) {
       // Залишаємо тільки останні 50 записів
       this.usedWordSetIndices = this.usedWordSetIndices.slice(-50);
-      console.log(`Trimmed usedWordSetIndices to 50 entries`);
     }
     
     // Очищаємо roundData
@@ -214,7 +83,6 @@ class GameRoom {
       this.roundData = null;
     }
     
-    console.log(`Room ${this.code} cleaned up`);
   }
 
   addPlayer(id, name, socketId) {
@@ -260,7 +128,6 @@ class GameRoom {
         const drawingSize = this.drawings.get(id)?.length || 0;
         if (drawingSize > 1000) { // Якщо багато даних
           this.drawings.delete(id);
-          console.log(`Cleared ${drawingSize} drawing strokes for disconnected player ${id}`);
         }
       }
     }
@@ -310,7 +177,6 @@ class GameRoom {
       disconnectedPlayers.forEach(playerId => {
         this.players.delete(playerId);
         this.scores.delete(playerId);
-        console.log(`Removed disconnected player ${playerId} before round ${this.currentRound}`);
       });
       
       // ВИПРАВЛЕНО: Обмежуємо розмір usedWordSetIndices
@@ -321,7 +187,6 @@ class GameRoom {
           return parseInt(round) >= Math.max(1, this.currentRound - 3);
         });
         this.usedWordSetIndices = currentRoundSets;
-        console.log(`Trimmed usedWordSetIndices to ${currentRoundSets.length} recent entries`);
       }
       
       // Отримуємо всі картки для поточного раунду
@@ -344,7 +209,6 @@ class GameRoom {
       
       // Якщо недостатньо невикористаних карток, скидаємо для цього раунду
       if (availableIndices.length < 4) {
-        console.log(`Not enough unused sets for round ${this.currentRound}, resetting...`);
         this.usedWordSetIndices = this.usedWordSetIndices.filter(id => !id.startsWith(`${this.currentRound}-`));
         availableIndices = [];
         for (let i = 0; i < roundWordStrings.length; i++) {
@@ -373,15 +237,10 @@ class GameRoom {
         D: roundWordStrings[selectedIndices[3]].split(',').map(word => word.trim())
       };
 
-      console.log(`Round ${this.currentRound}: using cards ${selectedIndices.join(', ')} from round pool`);
 
       // Перевіряємо що кожна картка має рівно 9 слів
       if (wordSet.A.length !== 9 || wordSet.B.length !== 9 || wordSet.C.length !== 9 || wordSet.D.length !== 9) {
         console.error('Word set validation error: each card must have exactly 9 words');
-        console.log('Card A:', wordSet.A.length, 'words');
-        console.log('Card B:', wordSet.B.length, 'words');
-        console.log('Card C:', wordSet.C.length, 'words');
-        console.log('Card D:', wordSet.D.length, 'words');
       }
 
       // Призначаємо кожному гравцю унікальну комбінацію (буква + номер)
@@ -413,8 +272,6 @@ class GameRoom {
           number,
           word
         });
-
-        console.log(`  📋 Assignment: Player ${playerId} → ${letter}${number} "${word}"`);
       }
       
       this.roundData = {
@@ -433,10 +290,6 @@ class GameRoom {
           [...SCORE_SEQUENCE.slice(0, guessSequenceLength)]
         );
       }
-
-      console.log(`Round ${this.currentRound} initialized:`);
-      console.log(`- Players: ${this.players.size}`);
-      console.log(`- Guess sequence length: ${guessSequenceLength}`);
       
       this.state = 'playing';
 
@@ -471,7 +324,6 @@ class GameRoom {
     
     playerRate.count++;
     if (playerRate.count > 60) { // максимум 60 повідомлень за секунду
-      console.log(`Rate limit exceeded for player ${playerId}`);
       return false;
     }
     
@@ -510,31 +362,12 @@ class GameRoom {
     );
     if (usedCombinations.has(`${letter}${number}`)) return false;
 
-    // DEBUG: Виводимо повну інформацію про здогадку
     const targetAssignment = this.roundData.assignments.get(targetId);
-    const guesserAssignment = this.roundData.assignments.get(guesserId);
-
-    console.log(`\n🔍 GUESS DEBUG:`);
-    console.log(`  Guesser: ${guesserId} (has: ${guesserAssignment?.letter}${guesserAssignment?.number} "${guesserAssignment?.word}")`);
-    console.log(`  Target: ${targetId} (has: ${targetAssignment?.letter}${targetAssignment?.number} "${targetAssignment?.word}")`);
-    console.log(`  Guessed: ${letter}${number} (letter type: ${typeof letter}, number type: ${typeof number})`);
-    console.log(`  Target: ${targetAssignment?.letter}${targetAssignment?.number} (letter type: ${typeof targetAssignment?.letter}, number type: ${typeof targetAssignment?.number})`);
-    console.log(`  Letter match: ${letter} === ${targetAssignment?.letter} = ${letter === targetAssignment?.letter}`);
-    console.log(`  Number match: ${number} == ${targetAssignment?.number} = ${number == targetAssignment?.number}`);
-
-    // Выводим ВСЕ assignments для контекста
-    console.log(`\n  📋 ALL ASSIGNMENTS IN THIS ROUND:`);
-    for (let [pid, assignment] of this.roundData.assignments) {
-      const marker = pid === guesserId ? '👉' : (pid === targetId ? '🎯' : '  ');
-      console.log(`    ${marker} ${pid}: ${assignment.letter}${assignment.number} "${assignment.word}"`);
-    }
 
     // ВИПРАВЛЕНО: Перевіряємо правильність - порівнюємо І БУКВУ, І НОМЕР
     const correct = targetAssignment &&
                    (letter === targetAssignment.letter) &&
                    (number == targetAssignment.number);
-
-    console.log(`  RESULT: ${correct ? '✅ CORRECT' : '❌ INCORRECT'}\n`);
 
     // Зберігаємо здогадку
     guesserGuesses.set(targetId, {
@@ -557,7 +390,6 @@ class GameRoom {
 
   finishGuessing(playerId) {
     this.finishedGuessing.add(playerId);
-    console.log(`Player ${playerId} finished guessing`);
   }
 
   isRoundComplete() {
@@ -622,7 +454,6 @@ class GameRoom {
         const current = roundScores.get(artistId) || 0;
         roundScores.set(artistId, current - penalty);
 
-        console.log(`Artist ${artistId}: ${guessesForArtist.length} players guessed, penalty: -${penalty} (undistributed: [${undistributedPoints.join(', ')}])`);
       }
     }
 
@@ -637,9 +468,6 @@ class GameRoom {
       this.scores.set(playerId, current + points);
     }
 
-    console.log('Round scores:', Object.fromEntries(roundScores));
-    console.log('Score details:', Object.fromEntries(scoreDetails));
-    console.log('Total scores:', Object.fromEntries(this.scores));
 
     return {
       roundScores: Object.fromEntries(roundScores),
@@ -761,7 +589,6 @@ class FakeArtistGame {
     this.selectedThemesPool = [];
     this.usedThemes = [];
 
-    console.log(`FakeArtistGame ${this.code} cleaned up`);
   }
 
   addPlayer(id, name, socketId) {
@@ -882,7 +709,6 @@ class FakeArtistGame {
   }
 
   finishThemeSelection() {
-    console.log(`Finishing theme selection. Votes received: ${this.playerThemeVotes.size}/${this.players.size}`);
 
     // Збираємо всі унікальні теми
     const allVotedThemes = new Set();
@@ -908,7 +734,6 @@ class FakeArtistGame {
       }
     }
 
-    console.log(`Theme pool: ${this.selectedThemesPool.join(', ')}`);
 
     // Починаємо перший раунд
     this.startRound();
@@ -963,7 +788,6 @@ class FakeArtistGame {
     // Запускаємо таймер для першого ходу
     this.startTurnTimer();
 
-    console.log(`Round ${this.currentRound}: Theme=${this.currentTheme}, Word=${this.currentWord}, Fake=${this.fakeArtistId}`);
 
     // Відправляємо кожному гравцю його карточку
     for (let [playerId, player] of this.players) {
@@ -1348,7 +1172,6 @@ const playerRooms = new Map(); // playerId -> roomCode
 
 // Socket.io обробники
 io.on('connection', (socket) => {
-  console.log('New connection:', socket.id);
   
   let currentPlayerId = null;
   let currentRoomCode = null;
@@ -1464,7 +1287,6 @@ io.on('connection', (socket) => {
 
       // НОВЕ: Перевіряємо чи вдалося почати раунд
       if (!roundData) {
-        console.log('Round already starting, ignoring duplicate request');
         return;
       }
 
@@ -1550,7 +1372,6 @@ io.on('connection', (socket) => {
       });
     }
 
-    console.log(`Room ${roomCode} converted to Unicorn Canvas mode`);
   });
 
   // Синхронізація малювання
@@ -1602,7 +1423,6 @@ io.on('connection', (socket) => {
 
     if (result && result.success) {
       // ВИПРАВЛЕНО: Додаємо correct та правильне assignment до відповіді
-      console.log(`✅ Player ${currentPlayerId} guessed ${letter}${number} for ${targetId}: ${result.correct ? 'CORRECT' : 'INCORRECT'}`);
 
       socket.emit('guess_accepted', {
         targetId,
@@ -1646,11 +1466,9 @@ io.on('connection', (socket) => {
   socket.on('end_round', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || currentPlayerId !== room.hostId) {
-      console.log(`Player ${currentPlayerId} tried to end round but is not host`);
       return;
     }
 
-    console.log(`Host ${currentPlayerId} ending round ${room.currentRound}`);
 
     const scores = room.calculateRoundScores();
     io.to(currentRoomCode).emit('round_ended', scores);
@@ -1672,11 +1490,9 @@ io.on('connection', (socket) => {
   socket.on('reveal_answers', () => {
     const room = rooms.get(currentRoomCode);
     if (!room || currentPlayerId !== room.hostId) {
-      console.log(`Player ${currentPlayerId} tried to reveal answers but is not host`);
       return;
     }
 
-    console.log(`Host ${currentPlayerId} revealing correct answers`);
 
     // ВИПРАВЛЕНО: Встановлюємо флаг на сервері
     room.answersRevealed = true;
@@ -1699,7 +1515,6 @@ io.on('connection', (socket) => {
     
     // НОВЕ: Перевіряємо чи вдалося почати раунд
     if (!roundData) {
-      console.log('Round already starting, ignoring duplicate request');
       return;
     }
     
@@ -1751,7 +1566,6 @@ io.on('connection', (socket) => {
       // Замінюємо кімнату
       rooms.set(roomCode, newRoom);
 
-      console.log(`Room ${roomCode} converted back to GameRoom (lobby)`);
 
       io.to(currentRoomCode).emit('game_reset', newRoom.getState());
     } else {
@@ -1972,7 +1786,6 @@ io.on('connection', (socket) => {
             }
           }
           
-          console.log(`Room ${currentRoomCode} deleted - ${allDisconnected ? 'all players disconnected' : 'no players left'}`);
         } else {
           io.to(currentRoomCode).emit('player_disconnected', {
             playerId: currentPlayerId,
@@ -1985,7 +1798,6 @@ io.on('connection', (socket) => {
       }
     }
     
-    console.log(`Player ${socket.id} disconnected. Active rooms: ${rooms.size}, Active players: ${playerRooms.size}`);
   });
 });
 
@@ -2029,16 +1841,13 @@ setInterval(() => {
   }
   
   if (roomsCleaned > 0 || playersRemoved > 0) {
-    console.log(`[GC] Cleaned ${roomsCleaned} rooms, ${playersRemoved} player references`);
   }
   
   // Логуємо статистику
-  console.log(`[GC] Active: ${rooms.size} rooms, ${playerRooms.size} player mappings`);
   
   // Форсуємо garbage collection Node.js (якщо запущено з --expose-gc)
   if (global.gc) {
     global.gc();
-    console.log('[GC] Manual garbage collection triggered');
   }
 }, 60 * 60 * 1000); // 1 година
 
