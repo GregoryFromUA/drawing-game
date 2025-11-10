@@ -58,13 +58,14 @@ setInterval(() => {
   const elapsedSec = (now - trafficStats.lastLogTime) / 1000;
   const totalElapsedMin = (now - trafficStats.startTime) / 60000;
 
-  if (trafficStats.messagesSent > 0) {
-    console.log('\n📊 === TRAFFIC STATS (last 60s) ===');
-    console.log(`Total sent: ${(trafficStats.totalBytesSent / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`Messages: ${trafficStats.messagesSent}`);
-    console.log(`Rate: ${(trafficStats.totalBytesSent / elapsedSec / 1024).toFixed(1)} KB/sec`);
-    console.log(`Uptime: ${totalElapsedMin.toFixed(1)} min`);
+  // ВИПРАВЛЕНО: Показуємо логи завжди (навіть якщо messagesSent === 0)
+  console.log('\n📊 === TRAFFIC STATS (last 60s) ===');
+  console.log(`Total sent: ${(trafficStats.totalBytesSent / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`Messages: ${trafficStats.messagesSent}`);
+  console.log(`Rate: ${(trafficStats.totalBytesSent / elapsedSec / 1024).toFixed(1)} KB/sec`);
+  console.log(`Uptime: ${totalElapsedMin.toFixed(1)} min`);
 
+  if (trafficStats.messagesSent > 0) {
     // Топ-3 події за трафіком
     const sorted = Object.entries(trafficStats.byEventType)
       .sort((a, b) => b[1].bytes - a[1].bytes)
@@ -74,8 +75,10 @@ setInterval(() => {
     sorted.forEach(([event, stats]) => {
       console.log(`  ${event}: ${(stats.bytes / 1024).toFixed(1)} KB (${stats.count} msgs)`);
     });
-    console.log('=====================================\n');
+  } else {
+    console.log('\nNo messages sent yet (server idle)');
   }
+  console.log('=====================================\n');
 
   trafficStats.lastLogTime = now;
 }, 60000);
