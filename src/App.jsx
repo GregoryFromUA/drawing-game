@@ -273,14 +273,15 @@ function App() {
             setThemeSelectionTimeLeft(20); // Скидаємо таймер
         });
 
-        newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, state }) => {
+        newSocket.on('round_started_unicorn', ({ round, theme, card, turnOrder, currentTurnIndex, currentDrawingRound, sharedDrawing, state }) => {
             console.log('Unicorn round started', { round, theme, card });
             setCurrentTheme(theme);
             setPlayerCard(card);
             setTurnOrder(turnOrder);
             setCurrentTurnIndex(currentTurnIndex);
             setCurrentDrawingRound(currentDrawingRound);
-            setSharedDrawing([]);
+            // ВИПРАВЛЕНО: Використовуємо sharedDrawing з сервера (для синхронізації при переподключенні)
+            setSharedDrawing(sharedDrawing || []);
             // ВИПРАВЛЕНО: Скидаємо індекс при новому раунді
             lastDrawnIndexRef.current = 0;
             // ВИПРАВЛЕНО: НЕ очищаємо тут - useEffect зробить це при реініціалізації
@@ -288,13 +289,15 @@ function App() {
             setRoomData(state);
         });
 
-        newSocket.on('drawing_stroke_added', ({ stroke, sharedDrawing }) => {
-            setSharedDrawing(sharedDrawing);
+        newSocket.on('drawing_stroke_added', ({ stroke }) => {
+            // ВИПРАВЛЕНО: Інкрементальне додавання замість заміни всього масиву (економія трафіку)
+            setSharedDrawing(prev => [...prev, stroke]);
         });
 
-        // ВИПРАВЛЕНО: Батчинг штрихів (оптимізація)
-        newSocket.on('drawing_strokes_added', ({ strokes, sharedDrawing }) => {
-            setSharedDrawing(sharedDrawing);
+        // ВИПРАВЛЕНО: Батчинг штрихів - інкрементальне додавання
+        newSocket.on('drawing_strokes_added', ({ strokes }) => {
+            // ВИПРАВЛЕНО: Додаємо тільки нові штрихи замість заміни всього масиву (економія трафіку)
+            setSharedDrawing(prev => [...prev, ...strokes]);
         });
 
         newSocket.on('next_turn', ({ currentTurnIndex, currentDrawingRound, currentPlayerId, state }) => {
@@ -542,8 +545,8 @@ function App() {
             }
         };
 
-        // Відправляємо кожні 50ms (баланс між трафіком та точністю синхронізації)
-        intervalId = setInterval(sendStrokes, 50);
+        // Відправляємо кожні 100ms (оптимізація: менше сообщений, добра синхронізація)
+        intervalId = setInterval(sendStrokes, 100);
 
         return () => {
             clearInterval(intervalId);
