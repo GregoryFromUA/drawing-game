@@ -545,8 +545,8 @@ function App() {
             }
         };
 
-        // Відправляємо кожні 50ms (баланс між трафіком та точністю синхронізації)
-        intervalId = setInterval(sendStrokes, 50);
+        // Відправляємо кожні 100ms (оптимізація: менше сообщений, добра синхронізація)
+        intervalId = setInterval(sendStrokes, 100);
 
         return () => {
             clearInterval(intervalId);
