@@ -21,6 +21,66 @@ app.use(cors());
 // Використовуємо dist директорію замість public (Vite build output)
 app.use(express.static('dist'));
 
+// ==================== TRAFFIC MONITORING ====================
+// Система мониторинга трафика WebSocket
+const trafficStats = {
+  totalBytesSent: 0,
+  messagesSent: 0,
+  byEventType: {},
+  startTime: Date.now(),
+  lastLogTime: Date.now()
+};
+
+// Обгортка для io.to().emit() з моніторингом
+function monitoredEmit(io, roomCode, eventName, data) {
+  const dataSize = JSON.stringify(data).length;
+
+  trafficStats.totalBytesSent += dataSize;
+  trafficStats.messagesSent++;
+
+  if (!trafficStats.byEventType[eventName]) {
+    trafficStats.byEventType[eventName] = { count: 0, bytes: 0 };
+  }
+  trafficStats.byEventType[eventName].count++;
+  trafficStats.byEventType[eventName].bytes += dataSize;
+
+  // Логування великих повідомлень (> 10KB)
+  if (dataSize > 10240) {
+    console.warn(`⚠️  LARGE MESSAGE: ${eventName} = ${(dataSize / 1024).toFixed(1)} KB to room ${roomCode}`);
+  }
+
+  io.to(roomCode).emit(eventName, data);
+}
+
+// Логування статистики кожні 60 секунд
+setInterval(() => {
+  const now = Date.now();
+  const elapsedSec = (now - trafficStats.lastLogTime) / 1000;
+  const totalElapsedMin = (now - trafficStats.startTime) / 60000;
+
+  if (trafficStats.messagesSent > 0) {
+    console.log('\n📊 === TRAFFIC STATS (last 60s) ===');
+    console.log(`Total sent: ${(trafficStats.totalBytesSent / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`Messages: ${trafficStats.messagesSent}`);
+    console.log(`Rate: ${(trafficStats.totalBytesSent / elapsedSec / 1024).toFixed(1)} KB/sec`);
+    console.log(`Uptime: ${totalElapsedMin.toFixed(1)} min`);
+
+    // Топ-3 події за трафіком
+    const sorted = Object.entries(trafficStats.byEventType)
+      .sort((a, b) => b[1].bytes - a[1].bytes)
+      .slice(0, 3);
+
+    console.log('\nTop traffic events:');
+    sorted.forEach(([event, stats]) => {
+      console.log(`  ${event}: ${(stats.bytes / 1024).toFixed(1)} KB (${stats.count} msgs)`);
+    });
+    console.log('=====================================\n');
+  }
+
+  trafficStats.lastLogTime = now;
+}, 60000);
+// ==================== END TRAFFIC MONITORING ====================
+
 // Константи гри
 const ROUNDS_PER_GAME = 4;
 const MIN_PLAYERS = 3;
@@ -845,6 +905,7 @@ class FakeArtistGame {
         turnOrder: this.turnOrder,
         currentTurnIndex: this.currentTurnIndex,
         currentDrawingRound: this.currentDrawingRound,
+        sharedDrawing: this.sharedDrawing, // ВИПРАВЛЕНО: Відправляємо повний масив тільки на початку раунду
         state: this.getState()
       });
     }
@@ -1193,7 +1254,8 @@ class FakeArtistGame {
       // Drawing phase
       currentTheme: this.state === 'drawing' || this.state === 'voting_fake' || this.state === 'fake_guessing' || this.state === 'voting_answer' || this.state === 'round_end' ? this.currentTheme : undefined,
       currentWord: this.state === 'voting_answer' || this.state === 'round_end' ? this.currentWord : undefined,
-      sharedDrawing: this.sharedDrawing,
+      // ВИПРАВЛЕНО: sharedDrawing НЕ включаємо в getState() (економія трафіку)
+      // Він синхронізується окремо через drawing_strokes_added
       turnOrder: this.state === 'drawing' ? this.turnOrder : undefined,
       currentTurnIndex: this.state === 'drawing' ? this.currentTurnIndex : undefined,
       currentDrawingRound: this.state === 'drawing' ? this.currentDrawingRound : undefined,
@@ -1665,6 +1727,7 @@ io.on('connection', (socket) => {
         turnOrder: room.turnOrder,
         currentTurnIndex: room.currentTurnIndex,
         currentDrawingRound: room.currentDrawingRound,
+        sharedDrawing: room.sharedDrawing, // ВИПРАВЛЕНО: Відправляємо повний масив для синхронізації
         state: room.getState()
       });
     }
@@ -1677,14 +1740,14 @@ io.on('connection', (socket) => {
 
     const success = room.addDrawingStroke(currentPlayerId, stroke);
     if (success) {
-      // Broadcast штрих всім
+      // Broadcast штрих всім (тільки новий штрих, БЕЗ повного масиву!)
       io.to(currentRoomCode).emit('drawing_stroke_added', {
         stroke: {
           ...stroke,
           playerId: currentPlayerId,
           color: room.playerColors.get(currentPlayerId)
-        },
-        sharedDrawing: room.sharedDrawing
+        }
+        // ВИПРАВЛЕНО: НЕ відправляємо sharedDrawing (економія трафіку)
       });
     }
   });
@@ -1704,14 +1767,14 @@ io.on('connection', (socket) => {
     });
 
     if (success) {
-      // Broadcast всі штрихи разом
+      // Broadcast всі штрихи разом (тільки нові штрихи, БЕЗ повного масиву!)
       io.to(currentRoomCode).emit('drawing_strokes_added', {
         strokes: strokes.map(stroke => ({
           ...stroke,
           playerId: currentPlayerId,
           color: room.playerColors.get(currentPlayerId)
-        })),
-        sharedDrawing: room.sharedDrawing
+        }))
+        // ВИПРАВЛЕНО: НЕ відправляємо sharedDrawing (економія трафіку в ~200 разів!)
       });
     }
   });
@@ -1797,6 +1860,7 @@ io.on('connection', (socket) => {
         turnOrder: room.turnOrder,
         currentTurnIndex: room.currentTurnIndex,
         currentDrawingRound: room.currentDrawingRound,
+        sharedDrawing: room.sharedDrawing, // ВИПРАВЛЕНО: Відправляємо повний масив для синхронізації
         state: room.getState()
       });
     }
