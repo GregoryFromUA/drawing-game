@@ -57,12 +57,22 @@
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.8em;
-    transition: all 0.3s;
+    transition: all 0.2s;
     width: 100%;
 }
 
-.help-button:hover {
+.help-button:hover:not(:disabled) {
     background: #1976d2;
+}
+
+.help-button:active:not(:disabled) {
+    background: #1565c0;
+}
+
+.help-button:disabled {
+    background: #2a3a3a;
+    color: #666;
+    cursor: not-allowed;
 }
 
 .tools-section h3 {
@@ -100,14 +110,25 @@
     color: #e0e0e0;
 }
 
-.tool-btn:hover {
+.tool-btn:hover:not(:disabled):not(.active) {
     background: #333;
+}
+
+.tool-btn:active:not(:disabled):not(.active) {
+    background: #3a3a3a;
 }
 
 .tool-btn.active {
     background: #667eea;
     border-color: #667eea;
     color: white;
+}
+
+.tool-btn:disabled {
+    background: #1a1a1a;
+    color: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .color-palette {
@@ -122,16 +143,25 @@
     border: 2px solid transparent;
     border-radius: 4px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
 }
 
-.color-btn:hover {
+.color-btn:hover:not(:disabled):not(.active) {
     transform: scale(1.1);
 }
 
+.color-btn:active:not(:disabled):not(.active) {
+    transform: scale(1.05);
+}
+
 .color-btn.active {
-    border-color: #333;
-    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    border-color: #fff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.color-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .size-selector {
@@ -152,13 +182,23 @@
     transition: background 0.2s;
 }
 
-.size-btn:hover {
+.size-btn:hover:not(:disabled):not(.active) {
     background: #333;
+}
+
+.size-btn:active:not(:disabled):not(.active) {
+    background: #3a3a3a;
 }
 
 .size-btn.active {
     background: #667eea;
     border-color: #667eea;
+}
+
+.size-btn:disabled {
+    background: #1a1a1a;
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .size-dot {
@@ -183,8 +223,24 @@
     border-radius: 5px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
     font-size: 0.8em;
+    background: #667eea;
+    color: white;
+}
+
+.action-btn:hover:not(:disabled) {
+    background: #5568d3;
+}
+
+.action-btn:active:not(:disabled) {
+    background: #4a5bc4;
+}
+
+.action-btn:disabled {
+    background: #3a3a3a;
+    color: #666;
+    cursor: not-allowed;
 }
 
 /* Центральна зона з канвасом */
@@ -433,8 +489,13 @@ canvas {
     color: #e0e0e0;
 }
 
-.guess-btn:hover:not(:disabled) {
+.guess-btn:hover:not(:disabled):not(.selected):not(.used) {
     background: #667eea;
+    color: white;
+}
+
+.guess-btn:active:not(:disabled):not(.selected):not(.used) {
+    background: #5568d3;
     color: white;
 }
 
