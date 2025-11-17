@@ -79,7 +79,7 @@
     display: block;
     margin-bottom: 5px;
     font-weight: 600;
-    color: #555;
+    color: #999;
     font-size: 0.8em;
 }
 
@@ -142,18 +142,18 @@
 .size-btn {
     flex: 1;
     aspect-ratio: 1;
-    border: 2px solid #e0e0e0;
+    border: 1px solid #444;
     border-radius: 4px;
-    background: white;
+    background: #2a2a2a;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s;
+    transition: background 0.2s;
 }
 
 .size-btn:hover {
-    border-color: #667eea;
+    background: #333;
 }
 
 .size-btn.active {
@@ -163,7 +163,7 @@
 
 .size-dot {
     border-radius: 50%;
-    background: #333;
+    background: #999;
 }
 
 .size-btn.active .size-dot {
@@ -423,19 +423,19 @@ canvas {
 
 .guess-btn {
     padding: 4px;
-    border: 2px solid #e0e0e0;
-    background: white;
-    border-radius: 5px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    border-radius: 4px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background 0.2s;
     font-size: 0.8em;
+    color: #e0e0e0;
 }
 
 .guess-btn:hover:not(:disabled) {
     background: #667eea;
     color: white;
-    border-color: #667eea;
 }
 
 .guess-btn:disabled {
@@ -477,10 +477,10 @@ canvas {
 }
 
 .word-card {
-    background: white;
+    background: #2a2a2a;
     padding: 8px;
     border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border: 1px solid #444;
 }
 
 .word-grid {
@@ -669,7 +669,7 @@ canvas {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.9);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -677,8 +677,9 @@ canvas {
 }
 
 .results-content {
-    background: white;
-    border-radius: 20px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 12px;
     padding: 40px;
     max-width: 800px;
     width: 90%;
@@ -692,7 +693,7 @@ canvas {
 }
 
 .results-header h2 {
-    color: #667eea;
+    color: #fff;
     font-size: 2em;
     margin-bottom: 10px;
 }
@@ -704,19 +705,21 @@ canvas {
 }
 
 .scores-table th {
-    background: #667eea;
-    color: white;
+    background: #2a2a2a;
+    color: #fff;
     padding: 15px;
     text-align: left;
+    border-bottom: 1px solid #444;
 }
 
 .scores-table td {
     padding: 12px 15px;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid #333;
+    color: #e0e0e0;
 }
 
 .scores-table tr:hover {
-    background: #f8f8f8;
+    background: #222;
 }
 
 .score-change {
@@ -725,28 +728,29 @@ canvas {
 }
 
 .winner-announcement {
-    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+    background: #2a2a2a;
     padding: 30px;
-    border-radius: 15px;
+    border-radius: 8px;
     text-align: center;
     margin: 20px 0;
+    border: 2px solid #ffd700;
 }
 
 .winner-announcement h3 {
     font-size: 2.5em;
-    color: #333;
+    color: #ffd700;
     margin-bottom: 10px;
 }
 
 .winner-name {
     font-size: 2em;
     font-weight: bold;
-    color: #667eea;
+    color: #fff;
 }
 
 .final-score {
     font-size: 1.5em;
-    color: #555;
+    color: #999;
     margin-top: 10px;
 }
 
@@ -815,10 +819,11 @@ canvas {
 .loading {
     text-align: center;
     padding: 40px;
+    color: #999;
 }
 
 .loading-spinner {
-    border: 4px solid #f3f3f3;
+    border: 4px solid #333;
     border-top: 4px solid #667eea;
     border-radius: 50%;
     width: 50px;
@@ -832,26 +837,14 @@ canvas {
     100% { transform: rotate(360deg); }
 }
 
-@keyframes fadeInUp {
-    0% {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 .modal-section {
-    animation: fadeInUp 0.4s ease-out;
-    background: #f8f8f8;
-    border: 2px solid #ddd;
-    border-radius: 10px;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
     padding: 15px;
     margin-top: 20px;
     max-height: 200px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .error-message {

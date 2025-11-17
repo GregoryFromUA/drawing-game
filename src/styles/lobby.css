@@ -189,7 +189,8 @@
     padding: 4px 10px;
     border-radius: 15px;
     font-size: 0.85em;
-    background: white;
+    background: #1a1a1a;
+    color: #999;
 }
 
 .ready-badge {
@@ -211,7 +212,7 @@
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
-    color: #555;
+    color: #999;
     font-size: 0.9em;
 }
 
