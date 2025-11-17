@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import GameBoard from './components/GameBoard';
 import OtherPlayerDrawing from './components/OtherPlayerDrawing';
 import ScoreRulesModal from './components/ScoreRulesModal';
+import ShowcaseButton from './components/ShowcaseButton';
 
 
 // Конфігурація
@@ -634,11 +635,13 @@ function App() {
         const hasRoomCode = roomCode.trim().length > 0;
         const hasPlayerName = playerName.trim().length > 0;
         const canJoin = hasRoomCode && hasPlayerName;
-        
+
         return (
-            <div className="lobby-container">
-                <div className="lobby">
-                    <h1>Doodle Prophet Unicorn Canvas Cobra</h1>
+            <>
+                <ShowcaseButton />
+                <div className="lobby-container">
+                    <div className="lobby">
+                        <h1>Doodle Prophet Unicorn Canvas Cobra</h1>
                     
                     {error && <div className="error-message">{error}</div>}
                     
@@ -688,9 +691,10 @@ function App() {
                     </button>
                 </div>
             </div>
+            </>
         );
     }
-    
+
     if (gameState === 'lobby') {
         return (
             <div className="lobby-container">

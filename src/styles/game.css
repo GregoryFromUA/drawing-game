@@ -1,9 +1,24 @@
 /* НОВИЙ LAYOUT ДЛЯ ГРИ */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 .game-container {
-    background: white;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
     height: 100vh;
     display: flex;
     overflow: hidden;
+    animation: slideIn 0.5s ease-out;
+    position: relative;
+    z-index: 1;
 }
 
 /* Основна зона гри */
@@ -27,12 +42,15 @@
 /* Ліва панель інструментів */
 .tools-panel {
     width: 180px;
-    background: #f8f8f8;
-    border-radius: 10px;
-    padding: 10px;
+    background: linear-gradient(135deg, rgba(248, 248, 248, 0.95) 0%, rgba(240, 240, 240, 0.95) 100%);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .game-status {
@@ -195,10 +213,32 @@
 
 .task-header {
     background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-    padding: 10px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: 15px;
     text-align: center;
-    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    box-shadow:
+        0 4px 15px rgba(255, 215, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    animation: glow 2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.task-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transform: rotate(45deg);
+    animation: shimmer 3s infinite;
 }
 
 .task-word {
@@ -226,9 +266,20 @@
 .canvas-container {
     background: white;
     border: 3px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 8px;
+    border-radius: 15px;
+    padding: 12px;
     position: relative;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    transition: all 0.3s ease;
+}
+
+.canvas-container:hover {
+    box-shadow:
+        0 15px 50px rgba(102, 126, 234, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+    border-color: #667eea;
 }
 
 .canvas-container.locked {
@@ -347,11 +398,18 @@ canvas {
 .drawing-card {
     background: white;
     border: 2px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 8px;
+    border-radius: 12px;
+    padding: 10px;
     position: relative;
-    transition: all 0.3s;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.drawing-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
 }
 
 .drawing-card.matched {
@@ -390,15 +448,16 @@ canvas {
 /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
 .drawing-card.correct {
     border: 3px solid #4caf50 !important;
-    background: #f1f8e9 !important;
-    box-shadow: 0 0 12px rgba(76, 175, 80, 0.6) !important;
+    background: linear-gradient(135deg, #f1f8e9 0%, #dcedc8 100%) !important;
+    animation: correctPulse 1.5s ease-in-out infinite;
     cursor: not-allowed;
 }
 
 .drawing-card.incorrect {
     border: 3px solid #f44336 !important;
-    background: #ffebee !important;
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%) !important;
     box-shadow: 0 0 12px rgba(244, 67, 54, 0.6) !important;
+    animation: incorrectShake 0.5s ease-in-out;
     cursor: not-allowed;
 }
 
@@ -485,25 +544,53 @@ canvas {
 }
 
 .word-item {
-    padding: 8px 10px;
-    background: #f0f0f0;
-    border-radius: 6px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
     font-size: 1.2em;
-    transition: all 0.3s;
-    min-height: 36px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    min-height: 38px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 2px solid transparent;
 }
 
 .word-item:hover {
-    background: #e8e8e8;
+    background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    border-color: #667eea;
+}
+
+@keyframes goldenShine {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5);
+    }
+    50% {
+        box-shadow: 0 6px 25px rgba(255, 215, 0, 0.8);
+    }
 }
 
 .word-item.my-word {
-    background: #ffd700;
+    background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
     font-weight: bold;
+    border: 2px solid #ffb700 !important;
+    animation: goldenShine 2s ease-in-out infinite;
+    color: #333;
+    position: relative;
+    overflow: hidden;
+}
+
+.word-item.my-word::after {
+    content: '★';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.7em;
+    color: #ff8c00;
 }
 
 /* Нові стилі для системи відгадування */
@@ -534,27 +621,43 @@ canvas {
     transition: all 0.4s ease-in-out;
 }
 
+@keyframes correctPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(76, 175, 80, 0.8);
+        transform: scale(1.03);
+    }
+}
+
+@keyframes incorrectShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
 /* НОВЕ: Стилі для правильних/неправильних відповідей */
 .word-item.correct {
-    background: #4caf50 !important;
+    background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%) !important;
     color: white !important;
     font-weight: bold;
     border: 2px solid #388e3c;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+    animation: correctPulse 1.5s ease-in-out infinite;
     opacity: 1 !important;
     cursor: not-allowed !important;
-    transition: all 0.4s ease-in-out;
 }
 
 .word-item.incorrect {
-    background: #f44336 !important;
+    background: linear-gradient(135deg, #f44336 0%, #e57373 100%) !important;
     color: white !important;
     font-weight: bold;
     border: 2px solid #d32f2f;
     box-shadow: 0 0 10px rgba(244, 67, 54, 0.6);
+    animation: incorrectShake 0.5s ease-in-out;
     opacity: 1 !important;
     cursor: not-allowed !important;
-    transition: all 0.4s ease-in-out;
 }
 
 .word-item:not(.my-word):not(.used) {
