@@ -84,10 +84,10 @@
     top: 50%;
     transform: translateY(-50%);
     background: #2a2a2a;
-    color: #4caf50;
+    color: #10B981;
     padding: 5px 15px;
     border-radius: 6px;
-    border: 1px solid #4caf50;
+    border: 1px solid #10B981;
     font-size: 0.8em;
     animation: fadeInOut 2s ease;
     pointer-events: none;
@@ -173,7 +173,7 @@
 
 .player-item.ready {
     background: #1a3a1a;
-    border: 1px solid #4caf50;
+    border: 1px solid #10B981;
 }
 
 .player-item.disconnected {
@@ -196,7 +196,7 @@
 }
 
 .ready-badge {
-    background: #4caf50;
+    background: #10B981;
     color: white;
 }
 
@@ -231,7 +231,7 @@
 
 .input-group input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #7C3AED;
     background: #333;
 }
 
@@ -247,7 +247,7 @@
 }
 
 .btn-primary {
-    background: #667eea;
+    background: #7C3AED;
     color: white;
 }
 
@@ -285,7 +285,7 @@
 }
 
 .btn-success {
-    background: #4caf50;
+    background: #10B981;
     color: white;
 }
 
@@ -304,7 +304,7 @@
 }
 
 .btn-danger {
-    background: #f44336;
+    background: #EF4444;
     color: white;
 }
 
