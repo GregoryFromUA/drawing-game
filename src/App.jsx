@@ -964,7 +964,7 @@ function App() {
                                     <div key={pid} style={{
                                         padding: '8px',
                                         marginTop: '5px',
-                                        background: isCurrent ? '#10B981' : (isDone ? '#2a2a2a' : '#1a1a1a'),
+                                        background: isCurrent ? '#4caf50' : (isDone ? '#2a2a2a' : '#1a1a1a'),
                                         borderRadius: '5px',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1098,7 +1098,7 @@ function App() {
                                         {player.name}
                                         {player.id === playerId && ' (Ви)'}
                                     </div>
-                                    <div style={{ fontSize: '20px', color: '#10B981' }}>
+                                    <div style={{ fontSize: '20px', color: '#4caf50' }}>
                                         {roomData?.scores?.[player.id] || 0} очок
                                     </div>
                                 </div>
@@ -1152,7 +1152,7 @@ function App() {
                             <h2 style={{ marginBottom: '20px', color: '#333' }}>Правила гри "Підробний художник"</h2>
 
                             <div style={{ lineHeight: '1.6', color: '#555' }}>
-                                <h3 style={{ marginTop: '15px', color: '#10B981' }}>Хід гри:</h3>
+                                <h3 style={{ marginTop: '15px', color: '#4caf50' }}>Хід гри:</h3>
 
                                 <p><strong>1. Вибір тем</strong></p>
                                 <p>Кожен гравець обирає 5 тем з 12 запропонованих. З обраних тем формується пул завдань для раунду.</p>
@@ -1172,7 +1172,7 @@ function App() {
                                 <p style={{ marginTop: '15px' }}><strong>5. Відгадування</strong></p>
                                 <p>Якщо підробного знайдено - він може спробувати вгадати слово. Якщо вгадає - отримує очки.</p>
 
-                                <h3 style={{ marginTop: '20px', color: '#10B981' }}>Нарахування очок:</h3>
+                                <h3 style={{ marginTop: '20px', color: '#4caf50' }}>Нарахування очок:</h3>
                                 <ul style={{ marginLeft: '20px' }}>
                                     <li>Підробний НЕ знайдений → Підробний: <strong>+2 очка</strong></li>
                                     <li>Підробний знайдений, але вгадав слово → Підробний: <strong>+2 очка</strong></li>
@@ -1184,7 +1184,7 @@ function App() {
                                     padding: '15px',
                                     backgroundColor: '#1a3a1a',
                                     borderRadius: '8px',
-                                    borderLeft: '4px solid #10B981'
+                                    borderLeft: '4px solid #4caf50'
                                 }}>
                                     <strong>💡 Порада:</strong> Підробний художник повинен уважно спостерігати за малюнками інших і малювати щось схоже.
                                 </div>
@@ -1257,7 +1257,7 @@ function App() {
                         </div>
 
                         {myVoteForFake && (
-                            <div style={{ textAlign: 'center', marginTop: '10px', color: '#10B981', fontSize: '14px' }}>
+                            <div style={{ textAlign: 'center', marginTop: '10px', color: '#4caf50', fontSize: '14px' }}>
                                 ✓ Ваш голос збережено. Очікування інших гравців...
                             </div>
                         )}
@@ -1359,7 +1359,7 @@ function App() {
                                     <strong>Категорія:</strong> {currentTheme}
                                 </div>
                                 <div style={{ marginBottom: '8px' }}>
-                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '20px', color: '#10B981', fontWeight: 'bold' }}>{roomData?.currentWord || '...'}</span>
+                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '20px', color: '#4caf50', fontWeight: 'bold' }}>{roomData?.currentWord || '...'}</span>
                                 </div>
                                 <div>
                                     <strong>Відповідь підробного:</strong> <span style={{ fontSize: '20px', color: '#EF4444', fontWeight: 'bold' }}>{fakeArtistGuess}</span>
@@ -1402,7 +1402,7 @@ function App() {
                                     </div>
 
                                     {myVoteForAnswer !== null && (
-                                        <div style={{ textAlign: 'center', marginTop: '12px', color: '#10B981', fontSize: '14px' }}>
+                                        <div style={{ textAlign: 'center', marginTop: '12px', color: '#4caf50', fontSize: '14px' }}>
                                             ✓ Ваш голос збережено
                                         </div>
                                     )}
@@ -1518,7 +1518,7 @@ function App() {
                                                     {player?.name}
                                                     {pid === playerId && ' (Ви)'}
                                                 </td>
-                                                <td style={{ fontSize: '20px', fontWeight: 'bold', color: '#10B981' }}>
+                                                <td style={{ fontSize: '20px', fontWeight: 'bold', color: '#4caf50' }}>
                                                     {score}
                                                 </td>
                                                 <td>
@@ -1535,7 +1535,7 @@ function App() {
                     <div className="results-actions" style={{ marginTop: '15px' }}>
                         {isGameEnd ? (
                             <div>
-                                <h2 style={{ color: '#10B981', marginBottom: '12px', fontSize: '1.3em' }}>
+                                <h2 style={{ color: '#4caf50', marginBottom: '12px', fontSize: '1.3em' }}>
                                     🏆 Переможець: {roomData?.players?.find(p => p.id === roomData?.winner)?.name}!
                                 </h2>
                                 {isHost && (

@@ -243,6 +243,18 @@
     cursor: not-allowed;
 }
 
+.action-btn.btn-success {
+    background: #4caf50;
+}
+
+.action-btn.btn-success:hover:not(:disabled) {
+    background: #45a049;
+}
+
+.action-btn.btn-success:active:not(:disabled) {
+    background: #3d8b40;
+}
+
 /* Центральна зона з канвасом */
 .canvas-section {
     flex: 1;
@@ -256,13 +268,13 @@
     padding: 12px;
     border-radius: 6px;
     text-align: center;
-    border: 1px solid #444;
+    border: 2px solid #ffd700;
 }
 
 .task-word {
     font-size: 1.4em;
     font-weight: bold;
-    color: #fff;
+    color: #ffd700;
     line-height: 1.3;
     word-wrap: break-word;
 }
@@ -422,7 +434,7 @@ canvas {
 }
 
 .drawing-card.matched {
-    border: 2px solid #10B981;
+    border: 2px solid #4caf50;
     background: #1a3a1a;
     cursor: not-allowed;
 }
@@ -438,7 +450,7 @@ canvas {
 }
 
 .drawing-card.guessed {
-    border-color: #10B981;
+    border-color: #4caf50;
     background: #1a3a1a;
 }
 
@@ -451,7 +463,7 @@ canvas {
 
 /* НОВЕ: Стилі для правильних/неправильних відповідей рамок */
 .drawing-card.correct {
-    border: 2px solid #10B981 !important;
+    border: 2px solid #4caf50 !important;
     background: #1a3a1a !important;
     cursor: not-allowed;
 }
@@ -505,9 +517,9 @@ canvas {
 }
 
 .guess-btn.selected {
-    background: #10B981;
+    background: #4caf50;
     color: white;
-    border-color: #10B981;
+    border-color: #4caf50;
 }
 
 .guess-btn.used {
@@ -604,7 +616,7 @@ canvas {
 
 /* НОВЕ: Стилі для правильних/неправильних відповідей */
 .word-item.correct {
-    background: #10B981 !important;
+    background: #4caf50 !important;
     color: white !important;
     font-weight: bold;
     border: 1px solid #388e3c;
@@ -784,7 +796,7 @@ canvas {
 }
 
 .score-change {
-    color: #10B981;
+    color: #4caf50;
     font-weight: 600;
 }
 
