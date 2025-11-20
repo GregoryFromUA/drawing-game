@@ -634,7 +634,7 @@ function App() {
         const hasRoomCode = roomCode.trim().length > 0;
         const hasPlayerName = playerName.trim().length > 0;
         const canJoin = hasRoomCode && hasPlayerName;
-        
+
         return (
             <div className="lobby-container">
                 <div className="lobby">
@@ -650,7 +650,7 @@ function App() {
                             onChange={(e) => setPlayerName(e.target.value)}
                             placeholder={hasRoomCode && !hasPlayerName ? "Введіть своє ім'я ТУТ" : "Captain Obvious"}
                             maxLength={15}
-                            style={hasRoomCode && !hasPlayerName ? {borderColor: '#ff9800', borderWidth: '2px'} : {}}
+                            style={hasRoomCode && !hasPlayerName ? {borderColor: '#F59E0B', borderWidth: '2px'} : {}}
                         />
                     </div>
                     
@@ -690,7 +690,7 @@ function App() {
             </div>
         );
     }
-    
+
     if (gameState === 'lobby') {
         return (
             <div className="lobby-container">
@@ -730,7 +730,7 @@ function App() {
                                         key={player.id}
                                         className={`player-item ${player.ready ? 'ready' : ''} ${!player.connected ? 'disconnected' : ''}`}
                                     >
-                                        <span className="player-name" style={{ color: player.color || '#000', fontWeight: 'bold' }}>
+                                        <span className="player-name" style={{ color: player.color || '#e0e0e0', fontWeight: 'bold' }}>
                                             {player.name}
                                             {player.id === playerId && ' (Ви)'}
                                             {player.id === roomData.hostId && ' 👑'}
@@ -919,7 +919,7 @@ function App() {
                     <div style={{ width: '250px' }}>
                         <div className="player-card" style={{
                             padding: '20px',
-                            background: '#f0f0f0',
+                            background: '#1a1a1a',
                             borderRadius: '10px',
                             marginBottom: '20px'
                         }}>
@@ -940,7 +940,7 @@ function App() {
                                 fontWeight: 'bold',
                                 marginTop: '15px',
                                 padding: '20px',
-                                background: playerCard?.isFake ? '#ffcccc' : '#ccffcc',
+                                background: playerCard?.isFake ? '#3a1a1a' : '#1a3a1a',
                                 borderRadius: '5px',
                                 textAlign: 'center',
                                 lineHeight: '1.3'
@@ -951,7 +951,7 @@ function App() {
 
                         <div className="turn-order" style={{
                             padding: '15px',
-                            background: '#f9f9f9',
+                            background: '#1a1a1a',
                             borderRadius: '10px'
                         }}>
                             <h3>Порядок ходів (Раунд {currentDrawingRound}/2)</h3>
@@ -964,11 +964,12 @@ function App() {
                                     <div key={pid} style={{
                                         padding: '8px',
                                         marginTop: '5px',
-                                        background: isCurrent ? '#4CAF50' : (isDone ? '#e0e0e0' : 'white'),
+                                        background: isCurrent ? '#4caf50' : (isDone ? '#2a2a2a' : '#1a1a1a'),
                                         borderRadius: '5px',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '10px'
+                                        gap: '10px',
+                                        border: '1px solid #444'
                                     }}>
                                         <div style={{
                                             width: '20px',
@@ -978,7 +979,7 @@ function App() {
                                         }}></div>
                                         <span style={{
                                             fontWeight: isCurrent ? 'bold' : 'normal',
-                                            color: isCurrent ? 'white' : (player?.color || '#000')
+                                            color: isCurrent ? 'white' : (player?.color || '#e0e0e0')
                                         }}>
                                             {player?.name || 'Гравець'}
                                             {pid === playerId && ' (Ви)'}
@@ -998,7 +999,7 @@ function App() {
                                     </>
                                 )}
                             </h3>
-                            <div style={{ fontSize: '24px', color: drawingTimeLeft <= 10 ? '#ff0000' : '#666' }}>
+                            <div style={{ fontSize: '24px', color: drawingTimeLeft <= 10 ? '#EF4444' : '#666' }}>
                                 ⏱️ {drawingTimeLeft} сек.
                             </div>
                         </div>
@@ -1081,7 +1082,7 @@ function App() {
                     <div style={{ width: '200px' }}>
                         <div style={{
                             padding: '15px',
-                            background: '#f9f9f9',
+                            background: '#1a1a1a',
                             borderRadius: '10px'
                         }}>
                             <h3>Рахунок</h3>
@@ -1089,14 +1090,15 @@ function App() {
                                 <div key={player.id} style={{
                                     padding: '8px',
                                     marginTop: '5px',
-                                    background: 'white',
-                                    borderRadius: '5px'
+                                    background: '#1a1a1a',
+                                    borderRadius: '5px',
+                                    border: '1px solid #444'
                                 }}>
-                                    <div style={{ fontWeight: 'bold', color: player.color || '#000' }}>
+                                    <div style={{ fontWeight: 'bold', color: player.color || '#e0e0e0' }}>
                                         {player.name}
                                         {player.id === playerId && ' (Ви)'}
                                     </div>
-                                    <div style={{ fontSize: '20px', color: '#4CAF50' }}>
+                                    <div style={{ fontSize: '20px', color: '#4caf50' }}>
                                         {roomData?.scores?.[player.id] || 0} очок
                                     </div>
                                 </div>
@@ -1120,14 +1122,16 @@ function App() {
                         zIndex: 10000
                     }}>
                         <div style={{
-                            backgroundColor: 'white',
+                            backgroundColor: '#1a1a1a',
                             padding: '30px',
                             borderRadius: '15px',
                             maxWidth: '700px',
                             maxHeight: '80vh',
                             overflow: 'auto',
                             position: 'relative',
-                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                            border: '1px solid #444',
+                            color: '#e0e0e0'
                         }}>
                             <button
                                 onClick={() => setShowRules(false)}
@@ -1148,7 +1152,7 @@ function App() {
                             <h2 style={{ marginBottom: '20px', color: '#333' }}>Правила гри "Підробний художник"</h2>
 
                             <div style={{ lineHeight: '1.6', color: '#555' }}>
-                                <h3 style={{ marginTop: '15px', color: '#4CAF50' }}>Хід гри:</h3>
+                                <h3 style={{ marginTop: '15px', color: '#4caf50' }}>Хід гри:</h3>
 
                                 <p><strong>1. Вибір тем</strong></p>
                                 <p>Кожен гравець обирає 5 тем з 12 запропонованих. З обраних тем формується пул завдань для раунду.</p>
@@ -1168,7 +1172,7 @@ function App() {
                                 <p style={{ marginTop: '15px' }}><strong>5. Відгадування</strong></p>
                                 <p>Якщо підробного знайдено - він може спробувати вгадати слово. Якщо вгадає - отримує очки.</p>
 
-                                <h3 style={{ marginTop: '20px', color: '#4CAF50' }}>Нарахування очок:</h3>
+                                <h3 style={{ marginTop: '20px', color: '#4caf50' }}>Нарахування очок:</h3>
                                 <ul style={{ marginLeft: '20px' }}>
                                     <li>Підробний НЕ знайдений → Підробний: <strong>+2 очка</strong></li>
                                     <li>Підробний знайдений, але вгадав слово → Підробний: <strong>+2 очка</strong></li>
@@ -1178,9 +1182,9 @@ function App() {
                                 <div style={{
                                     marginTop: '20px',
                                     padding: '15px',
-                                    backgroundColor: '#e8f5e9',
+                                    backgroundColor: '#1a3a1a',
                                     borderRadius: '8px',
-                                    borderLeft: '4px solid #4CAF50'
+                                    borderLeft: '4px solid #4caf50'
                                 }}>
                                     <strong>💡 Порада:</strong> Підробний художник повинен уважно спостерігати за малюнками інших і малювати щось схоже.
                                 </div>
@@ -1208,7 +1212,7 @@ function App() {
                         <p style={{ fontSize: '14px', marginBottom: '15px', textAlign: 'center', color: '#666' }}>
                             Проголосуйте за гравця, якого ви підозрюєте
                         </p>
-                        <p style={{ fontSize: '16px', color: votingTimeLeft <= 5 ? '#ff0000' : '#666', textAlign: 'center', marginBottom: '15px' }}>
+                        <p style={{ fontSize: '16px', color: votingTimeLeft <= 5 ? '#EF4444' : '#666', textAlign: 'center', marginBottom: '15px' }}>
                             ⏱️ {votingTimeLeft} сек.
                         </p>
 
@@ -1244,7 +1248,7 @@ function App() {
                                         borderRadius: '50%',
                                         background: player.color || '#ccc'
                                     }}></div>
-                                    <span style={{ fontSize: '13px', color: player.color || '#000', fontWeight: 'bold' }}>
+                                    <span style={{ fontSize: '13px', color: player.color || '#e0e0e0', fontWeight: 'bold' }}>
                                         {player.name}
                                         {player.id === playerId && ' (Ви)'}
                                     </span>
@@ -1253,7 +1257,7 @@ function App() {
                         </div>
 
                         {myVoteForFake && (
-                            <div style={{ textAlign: 'center', marginTop: '10px', color: '#4CAF50', fontSize: '14px' }}>
+                            <div style={{ textAlign: 'center', marginTop: '10px', color: '#4caf50', fontSize: '14px' }}>
                                 ✓ Ваш голос збережено. Очікування інших гравців...
                             </div>
                         )}
@@ -1274,7 +1278,7 @@ function App() {
                                     <p style={{ fontSize: '14px', marginBottom: '10px', textAlign: 'center' }}>
                                         Спробуйте вгадати загадане слово з категорії: <strong>{currentTheme}</strong>
                                     </p>
-                                    <p style={{ fontSize: '16px', color: guessingTimeLeft <= 10 ? '#ff0000' : '#666', marginBottom: '15px', textAlign: 'center' }}>
+                                    <p style={{ fontSize: '16px', color: guessingTimeLeft <= 10 ? '#EF4444' : '#666', marginBottom: '15px', textAlign: 'center' }}>
                                         ⏱️ {guessingTimeLeft} сек.
                                     </p>
 
@@ -1347,7 +1351,7 @@ function App() {
                                 fontSize: '16px',
                                 marginTop: '15px',
                                 padding: '12px',
-                                background: '#f9f9f9',
+                                background: '#1a1a1a',
                                 borderRadius: '8px',
                                 marginBottom: '15px'
                             }}>
@@ -1355,10 +1359,10 @@ function App() {
                                     <strong>Категорія:</strong> {currentTheme}
                                 </div>
                                 <div style={{ marginBottom: '8px' }}>
-                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '20px', color: '#4CAF50', fontWeight: 'bold' }}>{roomData?.currentWord || '...'}</span>
+                                    <strong>Правильне слово:</strong> <span style={{ fontSize: '20px', color: '#4caf50', fontWeight: 'bold' }}>{roomData?.currentWord || '...'}</span>
                                 </div>
                                 <div>
-                                    <strong>Відповідь підробного:</strong> <span style={{ fontSize: '20px', color: '#FF5722', fontWeight: 'bold' }}>{fakeArtistGuess}</span>
+                                    <strong>Відповідь підробного:</strong> <span style={{ fontSize: '20px', color: '#EF4444', fontWeight: 'bold' }}>{fakeArtistGuess}</span>
                                 </div>
                             </div>
 
@@ -1398,7 +1402,7 @@ function App() {
                                     </div>
 
                                     {myVoteForAnswer !== null && (
-                                        <div style={{ textAlign: 'center', marginTop: '12px', color: '#4CAF50', fontSize: '14px' }}>
+                                        <div style={{ textAlign: 'center', marginTop: '12px', color: '#4caf50', fontSize: '14px' }}>
                                             ✓ Ваш голос збережено
                                         </div>
                                     )}
@@ -1454,9 +1458,10 @@ function App() {
                         <h3 style={{ marginBottom: '8px' }}>Розкриття ролей:</h3>
                         <div style={{
                             padding: '12px',
-                            background: '#fff3cd',
+                            background: '#2a2a2a',
                             borderRadius: '8px',
-                            marginTop: '8px'
+                            marginTop: '8px',
+                            border: '1px solid #F59E0B'
                         }}>
                             <div style={{ fontSize: '16px', marginBottom: '6px' }}>
                                 <strong>Категорія:</strong> {results.theme}
@@ -1464,7 +1469,7 @@ function App() {
                             <div style={{ fontSize: '16px', marginBottom: '6px' }}>
                                 <strong>Загадане слово:</strong> {results.word}
                             </div>
-                            <div style={{ fontSize: '16px', color: '#FF5722' }}>
+                            <div style={{ fontSize: '16px', color: '#EF4444' }}>
                                 <strong>Підробний художник:</strong> {roomData?.players?.find(p => p.id === results.fakeArtistId)?.name}
                             </div>
                         </div>
@@ -1474,7 +1479,7 @@ function App() {
                         <h3 style={{ marginBottom: '8px' }}>Що сталося:</h3>
                         <div style={{
                             padding: '10px',
-                            background: results.fakeWins ? '#ffebee' : '#e8f5e9',
+                            background: results.fakeWins ? '#3a1a1a' : '#1a3a1a',
                             borderRadius: '8px',
                             fontSize: '16px',
                             marginTop: '8px'
@@ -1513,7 +1518,7 @@ function App() {
                                                     {player?.name}
                                                     {pid === playerId && ' (Ви)'}
                                                 </td>
-                                                <td style={{ fontSize: '20px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                                <td style={{ fontSize: '20px', fontWeight: 'bold', color: '#4caf50' }}>
                                                     {score}
                                                 </td>
                                                 <td>
@@ -1530,7 +1535,7 @@ function App() {
                     <div className="results-actions" style={{ marginTop: '15px' }}>
                         {isGameEnd ? (
                             <div>
-                                <h2 style={{ color: '#4CAF50', marginBottom: '12px', fontSize: '1.3em' }}>
+                                <h2 style={{ color: '#4caf50', marginBottom: '12px', fontSize: '1.3em' }}>
                                     🏆 Переможець: {roomData?.players?.find(p => p.id === roomData?.winner)?.name}!
                                 </h2>
                                 {isHost && (
